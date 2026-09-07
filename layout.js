@@ -1,6 +1,54 @@
 (function() {
     var fn = window.fn;
 
+    // The page's own top-level layout: a menu bar over whichever of the three real routes
+    // (builder/stylesheets/screens) fn.util.route currently has resolved into content, the
+    // same real-navigation shape crm/'s tab bar and route setup already use in mini-framework.
+    fn.component.layout.set({
+        name : 'shell',
+        layout : function(opt = {}) {
+            var shell = fn.element.create({
+                tagName : 'div',
+                style : { display : 'flex', flexDirection : 'column', height : '100vh' },
+            });
+
+            var nav = fn.element.create({
+                tagName : 'div',
+                style : { display : 'flex', gap : '4px', padding : '8px 12px', borderBottom : '1px solid #3a3f4b', flexShrink : '0' },
+                parent : shell,
+            });
+
+            [
+                { hash : '#/', label : 'Builder' },
+                { hash : '#/stylesheets', label : 'Stylesheets' },
+                { hash : '#/screens', label : 'Screens' },
+            ].forEach(function(tab) {
+                fn.element.create({
+                    tagName : 'a',
+                    attribute : { href : tab.hash },
+                    text : tab.label,
+                    style : { padding : '8px 12px', color : '#8ab4f8', textDecoration : 'none', borderRadius : '6px' },
+                    parent : nav,
+                });
+            });
+
+            var content = fn.element.create({
+                tagName : 'div',
+                style : { flex : '1', minHeight : '0', display : 'flex', flexDirection : 'column' },
+                parent : shell,
+            });
+
+            fn.util.route({
+                routes : { '#/' : 'builder', '#/stylesheets' : 'stylesheets', '#/screens' : 'screens' },
+                defaultHash : '#/',
+                style : { flex : '1', minHeight : '0', display : 'flex', flexDirection : 'column' },
+                parent : content,
+            });
+
+            return shell;
+        },
+    });
+
     fn.component.layout.set({
         name : 'text',
         layout : function(opt) {
@@ -29,17 +77,20 @@
     });
 
     // Referenced by canvas/attributes-panel below via .closest('.__builder'), the same
-    // self-contained convention popup/close-btn/save-btn already use.
+    // self-contained convention popup/close-btn/save-btn already use. Routed into shell's
+    // content area rather than assuming the whole viewport, so it takes opt.components only as
+    // an override -- the shell's route entry doesn't pass one, so the default below is what
+    // actually renders the palette day to day.
     fn.component.layout.set({
         name : 'builder',
-        layout : function(opt = {components : []}) {
+        layout : function(opt = {}) {
             var builder = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__builder' },
-                style : { display : 'flex', height : '100vh' },
+                style : { display : 'flex', flex : '1', minHeight : '0' },
             });
 
-            fn.component.create({ name : 'palette', components : opt.components, parent : builder });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box' ], parent : builder });
             fn.component.create({ name : 'canvas', parent : builder });
             fn.component.create({ name : 'attributes-panel', parent : builder });
 
@@ -151,6 +202,28 @@
             };
 
             return panel;
+        },
+    });
+
+    // Placeholder for now -- will hold the stylesheets that get matched onto builder components,
+    // once that matching itself is built.
+    fn.component.layout.set({
+        name : 'stylesheets',
+        layout : function(opt = {}) {
+            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px' } });
+            fn.element.create({ tagName : 'h1', text : 'Stylesheets', style : { fontSize : '20px' }, parent : el });
+            return el;
+        },
+    });
+
+    // Placeholder for now -- will list the screens saved from the builder tab, once saving a
+    // screen is built.
+    fn.component.layout.set({
+        name : 'screens',
+        layout : function(opt = {}) {
+            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px' } });
+            fn.element.create({ tagName : 'h1', text : 'Screens', style : { fontSize : '20px' }, parent : el });
+            return el;
         },
     });
 })();

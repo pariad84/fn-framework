@@ -76,9 +76,12 @@
     // The returned element's own .refresh() re-runs the same resolve-and-render step without
     // requiring a hash change first, for updates that affect what the current route displays but
     // aren't a navigation (signal-lost's language switch, a live simulation tick) -- the same
-    // "refresh in place" shape as a `list` element, and reusable directly as a caller.
+    // "refresh in place" shape as a `list` element, and reusable directly as a caller. opt.style
+    // (optional) styles this wrapper itself, for a caller whose content area needs the routed
+    // screen to participate in its own layout (e.g. flex-filling remaining height) rather than
+    // just sitting there sized to its content.
     fn.util.route = function(opt) {
-        var el = fn.element.create({ tagName : 'div', parent : opt.parent });
+        var el = fn.element.create({ tagName : 'div', style : opt.style, parent : opt.parent });
         el.refresh = function() {
             var name = opt.resolve ? opt.resolve(location.hash) : (opt.routes[location.hash] || opt.routes[opt.defaultHash || '#/']);
             fn.component.refresh({ name : name, parent : el });

@@ -1,4 +1,4 @@
 (function() {
     var fn = window.fn;
-    fn.component.create({ name : 'builder', components : [ 'text', 'box' ], parent : document.body });
+    fn.component.create({ name : 'shell', parent : document.body });
 })();
