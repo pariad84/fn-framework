@@ -335,7 +335,9 @@
     // A single-record counterpart to `list`, sharing its opt.columns shape ({ name, label, list,
     // form }) but reading column.form instead of column.list (list's per-cell style has no
     // meaning for a field laid out top-to-bottom) and opt.data -- one plain object, since a form
-    // shows one record rather than a row-per-object array. Each field defaults to a real <input>
+    // shows one record rather than a row-per-object array. Falls back to a two-field sample when
+    // dropped from the palette with no data of its own, the same reason `list` above falls back
+    // to sample rows instead of rendering an empty table. Each field defaults to a real <input>
     // (attribute.type from column.form, defaulting to 'text'; column.form.tagName overrides the
     // element itself, e.g. 'textarea' for a multi-line field -- see Stylesheets' own form below)
     // for visual fidelity with an actual form. Readonly and pointer-events:none by default: unlike
@@ -355,7 +357,8 @@
     fn.component.layout.set({
         name : 'form',
         layout : function(opt) {
-            var data = opt.data || {};
+            var data = (opt.data && Object.keys(opt.data).length) ? opt.data
+                : { column1 : 'Value 1', column2 : 'Value 2' };
             var columns = (opt.columns && opt.columns.length) ? opt.columns
                 : Object.keys(data).map(function(name) { return { name : name, label : name }; });
             var form = fn.element.create({
