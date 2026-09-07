@@ -60,3 +60,8 @@ the directory, e.g. `npx serve .`) to use it.
   into a text field on the attributes panel instead of adding a separate
   drag handle, since this app is for arranging components on a screen, not
   for typing into them in place.
+- `list` originally took `opt.data.rows` (a header row + data rows, all as
+  plain arrays). Switched to `opt.datas`, a row-per-object array with column
+  names read from the first row's own keys, matching the shape
+  `fn.util.selectFlat` already returns everywhere else in this codebase --
+  one row-shape convention instead of two.

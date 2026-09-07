@@ -61,7 +61,10 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   edited via attributes-panel's text field (see below), not directly on
   canvas (`text` block-level, `span` inline).
 - `textarea` -- a real `<textarea>`, edited via its own `.value`.
-- `list` -- a `<table>`; cell content is fixed at drop time (no on-canvas or
+- `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
+  `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`
+  returns elsewhere in this codebase); column names come from the first row's
+  own keys. Cell content is fixed at drop time (no on-canvas or
   attributes-panel editing -- see the `list` layout's own comment for why).
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is

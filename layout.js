@@ -171,30 +171,41 @@
         },
     });
 
-    // A plain <table>: opt.data.rows defaults to a 2-column sample (header row + two data
-    // rows). Cells aren't editable on canvas (see the text/span/button/popup note below for
-    // why none of this app's components are anymore) and there's no single string to plug into
+    // A plain <table>: opt.datas is a row-per-object array (e.g. [{ column1: 'a', column2:
+    // 'b' }, ...]), the same shape fn.data.select-backed lists elsewhere in this codebase use --
+    // column names come from the first row's own keys, and become the header (`th`) text as-is.
+    // Cells aren't editable on canvas (see the text/span/button/popup note below for why none of
+    // this app's components are anymore) and there's no single string to plug into
     // attributes-panel's text field either, so a list's cell content is fixed at drop time.
     fn.component.layout.set({
         name : 'list',
         layout : function(opt) {
-            var rows = (opt.data && opt.data.rows) || [
-                [ 'Column 1', 'Column 2' ],
-                [ 'Row 1', 'Row 1' ],
-                [ 'Row 2', 'Row 2' ],
+            var datas = (opt.datas && opt.datas.length) ? opt.datas : [
+                { column1 : 'Row 1', column2 : 'Row 1' },
+                { column1 : 'Row 2', column2 : 'Row 2' },
             ];
+            var columns = Object.keys(datas[0]);
             var table = fn.element.create({
                 tagName : 'table',
                 attribute : { class : '__component' },
                 style : { borderCollapse : 'collapse' },
                 parent : opt.parent,
             });
-            rows.forEach(function(rowValues, rowIndex) {
+            var headerRow = fn.element.create({ tagName : 'tr', parent : table });
+            columns.forEach(function(column) {
+                fn.element.create({
+                    tagName : 'th',
+                    text : column,
+                    style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
+                    parent : headerRow,
+                });
+            });
+            datas.forEach(function(data) {
                 var tr = fn.element.create({ tagName : 'tr', parent : table });
-                rowValues.forEach(function(value) {
+                columns.forEach(function(column) {
                     fn.element.create({
-                        tagName : rowIndex === 0 ? 'th' : 'td',
-                        text : value,
+                        tagName : 'td',
+                        text : data[column],
                         style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
                         parent : tr,
                     });
@@ -208,13 +219,16 @@
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
     // each element. A container (div, popup -- anything that sets its own el.content, see div's
-    // comment above) walks el.content's children; 'list' reads its grid of cell text; 'textarea'
-    // reads its own .value (a real form control's live value, unlike a plain div/span/button,
-    // never shows up in .textContent); anything else (text/span/button) is read as its own
-    // textContent, kept current by attributes-panel's text field (see renderAttributeRows)
-    // rather than by editing on canvas -- see that field's comment for why. Reads all of these
-    // live rather than the original opt.data, since editing only ever changes the DOM/value,
-    // never that original opt.
+    // comment above) walks el.content's children; 'list' rebuilds its opt.datas shape from the
+    // table's own header row (column names) and body rows, rather than reading el._.opt.datas
+    // directly, since a list dropped from the palette never had opt.datas set in the first place
+    // (its layout falls back to its own default sample instead) -- the rendered table is the only
+    // place that default ends up recorded; 'textarea' reads its own .value (a real form control's
+    // live value, unlike a plain div/span/button, never shows up in .textContent); anything else
+    // (text/span/button) is read as its own textContent, kept current by attributes-panel's text
+    // field (see renderAttributeRows) rather than by editing on canvas -- see that field's
+    // comment for why. Reads all of these live rather than the original opt.data, since editing
+    // only ever changes the DOM/value, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -225,8 +239,12 @@
                 node.data = { title : el.querySelector('.__popup-title').textContent };
             }
         } else if (el._.name === 'list') {
-            node.data = { rows : Array.from(el.rows).map(function(tr) {
-                return Array.from(tr.children).map(function(cell) { return cell.textContent; });
+            var rows = Array.from(el.rows);
+            var columns = Array.from(rows[0].children).map(function(th) { return th.textContent; });
+            node.data = { datas : rows.slice(1).map(function(tr) {
+                var data = {};
+                Array.from(tr.children).forEach(function(td, i) { data[columns[i]] = td.textContent; });
+                return data;
             }) };
         } else if (el._.name === 'textarea') {
             node.data = { text : el.value };
@@ -590,12 +608,22 @@
     fn.component._.renderPreviewNode = function(node) {
         if (node.type === 'list') {
             var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
-            node.data.rows.forEach(function(rowValues, rowIndex) {
+            var columns = Object.keys(node.data.datas[0] || {});
+            var headerRow = fn.element.create({ tagName : 'tr', parent : table });
+            columns.forEach(function(column) {
+                fn.element.create({
+                    tagName : 'th',
+                    text : column,
+                    style : { border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' },
+                    parent : headerRow,
+                });
+            });
+            node.data.datas.forEach(function(data) {
                 var tr = fn.element.create({ tagName : 'tr', parent : table });
-                rowValues.forEach(function(value) {
+                columns.forEach(function(column) {
                     fn.element.create({
-                        tagName : rowIndex === 0 ? 'th' : 'td',
-                        text : value,
+                        tagName : 'td',
+                        text : data[column],
                         style : { border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' },
                         parent : tr,
                     });
