@@ -171,16 +171,31 @@
         },
     });
 
+    // Shared by list/form's own header/label rendering and their renderPreviewNode counterparts
+    // below. column.label || column.name would treat an intentionally blank label ('', e.g. a
+    // list column whose only content is a Delete button and needs no header text) the same as a
+    // missing one, silently falling back to the data key instead -- checking for undefined keeps
+    // an explicit '' respected.
+    fn.component._.columnLabel = function(column) {
+        return column.label !== undefined ? column.label : column.name;
+    };
+
     // A plain <table>: opt.datas is a row-per-object array (e.g. [{ column1: 'a', column2:
     // 'b' }, ...]), the same shape fn.data.select-backed lists elsewhere in this codebase use.
-    // opt.columns (optional) is [{ name, label, list, form }, ...] -- name indexes into each
-    // datas row, label is the header text (falls back to name), list is extra style merged onto
-    // that column's th/td (e.g. { width: '160px' }), and form is carried through unused here --
-    // it's `form`'s own field below (opt.columns is the one shape both components share). Without
-    // opt.columns, columns default to the first row's own keys (label === name, no extra style).
-    // Cells aren't editable on canvas (see the text/span/button/popup note below for why none of
-    // this app's components are anymore) and there's no single string to plug into
-    // attributes-panel's text field either, so a list's cell content is fixed at drop time.
+    // opt.columns (optional) is [{ name, label, list, form, render }, ...] -- name indexes into
+    // each datas row, label is the header text (falls back to name), list is extra style merged
+    // onto that column's th/td (e.g. { width: '160px' }), and form is carried through unused here
+    // -- it's `form`'s own field below (opt.columns is the one shape both components share).
+    // Without opt.columns, columns default to the first row's own keys (label === name, no extra
+    // style). Cells otherwise show data[column.name] as plain text (see the text/span/button/
+    // popup note below for why none of this app's components are contenteditable on canvas) and
+    // there's no single string to plug into attributes-panel's text field either, so an ordinary
+    // list's cell content is fixed at drop time. column.render(data), when given, overrides that
+    // default -- it must return a DOM node to place in the cell instead (e.g. Stylesheets' own
+    // list below uses it for a live style-preview swatch and a Delete button per row). render is
+    // a function, so it never survives fn.data's JSON storage -- fine for a list built fresh from
+    // live app code on every render (like Stylesheets'), but never use it on a list meant to be
+    // dropped onto the canvas and saved as a screen; that path only ever needs plain data.
     fn.component.layout.set({
         name : 'list',
         layout : function(opt) {
@@ -200,7 +215,7 @@
             columns.forEach(function(column) {
                 fn.element.create({
                     tagName : 'th',
-                    text : column.label || column.name,
+                    text : fn.component._.columnLabel(column),
                     style : Object.assign({ border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' }, column.list),
                     parent : headerRow,
                 });
@@ -208,12 +223,16 @@
             datas.forEach(function(data) {
                 var tr = fn.element.create({ tagName : 'tr', parent : table });
                 columns.forEach(function(column) {
-                    fn.element.create({
+                    var td = fn.element.create({
                         tagName : 'td',
-                        text : data[column.name],
                         style : Object.assign({ border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' }, column.list),
                         parent : tr,
                     });
+                    if (column.render) {
+                        td.appendChild(column.render(data));
+                    } else {
+                        td.textContent = data[column.name];
+                    }
                 });
             });
             // Resolved datas/columns are stashed directly on the element (the same idiom as
@@ -251,7 +270,7 @@
             });
             columns.forEach(function(column) {
                 var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
-                fn.element.create({ tagName : 'label', text : column.label || column.name, style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
                 fn.element.create({
                     tagName : 'input',
                     attribute : Object.assign({ type : 'text', value : data[column.name] || '', readonly : 'true' }, column.form),
@@ -465,9 +484,10 @@
         },
     });
 
-    // Same shape as `list`'s own tableArea/.refresh(): a stable wrapper the canvas's click
-    // handler finds via .closest('.__builder').querySelector('.__attributes-panel'), which owns
-    // re-rendering its own content in place rather than the canvas reaching into its DOM.
+    // Same refresh-in-place wrapper shape used throughout this file (e.g. `screens`' own list
+    // below): a stable element the canvas's click handler finds via
+    // .closest('.__builder').querySelector('.__attributes-panel'), which owns re-rendering its
+    // own content in place rather than the canvas reaching into its DOM.
     fn.component._.renderAttributeRows = function(el) {
         var wrap = fn.element.create({ tagName : 'div' });
 
@@ -586,36 +606,50 @@
                 parent : form,
             });
 
-            var list = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column' }, parent : el });
+            var listArea = fn.element.create({ tagName : 'div', parent : el });
 
-            list.refresh = function() {
-                Array.from(list.children).forEach(function(child) { child.remove(); });
-                fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
-                    var item = fn.element.create({
-                        tagName : 'div',
-                        style : { display : 'flex', alignItems : 'center', gap : '12px', padding : '10px 12px', borderBottom : '1px solid #e8eaed' },
-                        parent : list,
-                    });
-                    fn.element.create({ tagName : 'div', text : row.name, style : { flex : '1' }, parent : item });
-                    fn.element.create({
-                        tagName : 'div',
-                        text : 'Aa',
-                        style : Object.assign({ padding : '4px 10px', border : '1px solid #d9dce1', borderRadius : '4px' }, row.style),
-                        parent : item,
-                    });
-                    fn.element.create({
-                        tagName : 'button',
-                        attribute : { type : 'button' },
-                        text : 'Delete',
-                        event : { click : function() {
-                            fn.data.delete({ key : 'stylesheets', id : row.id });
-                            list.refresh();
+            // Renders the current stylesheets through this app's own `list` component --
+            // column.render supplies the one bit list can't do generically (a live style-preview
+            // swatch, and a Delete button) -- rather than hand-rolling near-identical row markup
+            // a second time. Empty state is handled here rather than by list itself: list's
+            // own no-datas fallback shows a placeholder sample (right for a freshly-dropped
+            // canvas component), which would be actively wrong here -- a real "no stylesheets
+            // yet" state should show nothing, not fake rows.
+            listArea.refresh = function() {
+                Array.from(listArea.children).forEach(function(child) { child.remove(); });
+                var rows = fn.util.selectFlat({ key : 'stylesheets' });
+                if (!rows.length) {
+                    fn.element.create({ tagName : 'div', text : 'No stylesheets yet.', style : { color : '#6b7280' }, parent : listArea });
+                    return;
+                }
+                fn.component.create({
+                    name : 'list',
+                    datas : rows,
+                    columns : [
+                        { name : 'name', label : 'Name' },
+                        { name : 'style', label : 'Preview', render : function(data) {
+                            return fn.element.create({
+                                tagName : 'div',
+                                text : 'Aa',
+                                style : Object.assign({ padding : '4px 10px', border : '1px solid #d9dce1', borderRadius : '4px' }, data.style),
+                            });
                         } },
-                        parent : item,
-                    });
+                        { name : 'id', label : '', render : function(data) {
+                            return fn.element.create({
+                                tagName : 'button',
+                                attribute : { type : 'button' },
+                                text : 'Delete',
+                                event : { click : function() {
+                                    fn.data.delete({ key : 'stylesheets', id : data.id });
+                                    listArea.refresh();
+                                } },
+                            });
+                        } },
+                    ],
+                    parent : listArea,
                 });
             };
-            list.refresh();
+            listArea.refresh();
 
             fn.element.create({
                 tagName : 'button',
@@ -637,7 +671,7 @@
                         fn.data.insert({ key : 'stylesheets', data : { name : nameInput.value, style : style } });
                         nameInput.value = '';
                         styleInput.value = '';
-                        list.refresh();
+                        listArea.refresh();
                     },
                 },
                 parent : form,
@@ -657,7 +691,7 @@
             node.data.columns.forEach(function(column) {
                 fn.element.create({
                     tagName : 'th',
-                    text : column.label || column.name,
+                    text : fn.component._.columnLabel(column),
                     style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
                     parent : headerRow,
                 });
@@ -679,8 +713,8 @@
         if (node.type === 'form') {
             var form = fn.element.create({ tagName : 'div', style : Object.assign({ display : 'flex', flexDirection : 'column', gap : '10px', padding : '10px', border : '1px dashed #d9dce1', minWidth : '200px' }, node.style) });
             node.data.columns.forEach(function(column) {
-                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
-                fn.element.create({ tagName : 'label', text : column.label || column.name, style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : field });
+                fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
                 fn.element.create({
                     tagName : 'input',
                     attribute : Object.assign({ type : 'text', value : node.data.data[column.name] || '', readonly : 'true' }, column.form),
@@ -705,9 +739,12 @@
         return el;
     };
 
-    // Same list.refresh() shape as `stylesheets` above. What a saved screen actually is (the
-    // trees `builder`'s Save Screen button writes via fn.component._.serializeComponent) is
-    // this tab's own concern to read back, not fn.data's.
+    // Same "wrapper with its own .refresh()" shape as `stylesheets` above, but hand-rolled
+    // rather than built on the `list` component -- each row's preview here is a full nested
+    // render (see renderPreviewNode below), not a flat set of columns list's table-row model
+    // can represent. What a saved screen actually is (the trees `builder`'s Save Screen button
+    // writes via fn.component._.serializeComponent) is this tab's own concern to read back, not
+    // fn.data's.
     fn.component.layout.set({
         name : 'screens',
         layout : function(opt = {}) {

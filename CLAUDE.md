@@ -44,12 +44,16 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   `span`/`button`/`popup`) is edited via a text field in the attributes panel,
   not on canvas -- see "Components" below for why.
 - **Stylesheets**: CRUD (name + a style object) stored under `fn.data`'s
-  `'stylesheets'` key. Each row shows a live preview swatch with the style
-  actually applied. `attributes-panel`'s own style-select reads this same key
+  `'stylesheets'` key. The row list itself is rendered through this app's own
+  `list` component (`column.render` supplies the swatch preview and Delete
+  button -- see "Components" below), the same building block Builder drops
+  onto the canvas. `attributes-panel`'s own style-select reads this same key
   to apply one onto a selected Builder component.
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
-  preview render and Delete. Loading a saved screen back into the Builder for
-  further editing isn't built yet.
+  preview render and Delete. Hand-rolled rather than `list` -- each row's
+  preview is a full nested render (`renderPreviewNode`'s output), not a flat
+  set of columns `list`'s table-row model can represent. Loading a saved
+  screen back into the Builder for further editing isn't built yet.
 
 ## Components (draggable canvas building blocks)
 
@@ -64,12 +68,20 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
   `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`
   returns elsewhere in this codebase), and optionally `opt.columns`
-  (`[{ name, label, list, form }, ...]`): `name` indexes into each `datas`
-  row, `label` is the header text (falls back to `name`), `list` is extra
-  style merged onto that column's `th`/`td` (e.g. `{ width: '160px' }`), and
-  `form` rides along unused here -- it's `form`'s own field below. Without
-  `opt.columns`, columns default to the first row's own keys. Cell content
-  is fixed at drop time (no on-canvas or attributes-panel editing -- see the
+  (`[{ name, label, list, form, render }, ...]`): `name` indexes into each
+  `datas` row, `label` is the header text (`fn.component._.columnLabel` falls
+  back to `name` only when `label` is actually missing, not just falsy -- an
+  intentionally blank `''` header, like Stylesheets' Delete column below,
+  stays blank), `list` is extra style merged onto that column's `th`/`td`
+  (e.g. `{ width: '160px' }`), and `form` rides along unused here -- it's
+  `form`'s own field below. `column.render(data)`, when given, replaces a
+  cell's default plain-text rendering with whatever DOM node it returns (see
+  Stylesheets' own list for a live style-preview swatch and a Delete button);
+  since it's a function, it never survives `fn.data`'s JSON storage, so only
+  use it on a list built fresh from live app code, never one meant to be
+  dropped onto the canvas and saved as a screen. Without `opt.columns`,
+  columns default to the first row's own keys. Cell content is otherwise
+  fixed at drop time (no on-canvas or attributes-panel editing -- see the
   `list` layout's own comment for why); the resolved `datas`/`columns` are
   stashed directly on the table element (`el.datas`/`el.columns`) rather
   than reconstructed from the rendered header/cell text, since `label` and
@@ -146,9 +158,13 @@ its own context via `.closest()`/`.querySelector()` (e.g. `canvas`'s
 caller-injected callback. Same bar before adding something new: look at how
 the existing, similar piece does it and match that shape -- don't let two
 things that do conceptually the same job drift into different
-implementations (see `stylesheets`/`screens`'s identical `list.refresh()`
-shape, or `serializeComponent`/`renderPreviewNode` deliberately mirroring
-each other's branching).
+implementations (see `serializeComponent`/`renderPreviewNode` deliberately
+mirroring each other's branching). `stylesheets` and `screens` both still
+have their own `<wrapper>.refresh()` (rebuild children, re-run on CRUD),
+but `stylesheets` renders its rows through the app's own `list` component
+now while `screens` doesn't -- a deliberate difference, not drift, since a
+screens row's content (a full nested preview render) doesn't fit `list`'s
+flat-columns model the way a name/swatch/Delete row does.
 
 No CSS files or classes for styling -- everything inline via
 `fn.element.create`'s `style` option. `.__component`/`.__canvas`/

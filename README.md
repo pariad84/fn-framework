@@ -82,3 +82,21 @@ the directory, e.g. `npx serve .`) to use it.
   -- fixed with `readonly` plus `pointer-events: none`, so a drag starting
   inside a field always reaches the form's own `enableDrag` instead of the
   browser's native text-selection handling.
+- The Stylesheets tab hand-rolled its own row list (name + a live style swatch
+  + Delete) before `list` existed. Once `list` did, that duplicated exactly
+  what it already does -- so it was rebuilt on top of `list` itself, adding
+  `column.render(data)` (a per-cell override returning a DOM node) as the one
+  piece a flat column model couldn't already express: the swatch preview and
+  the Delete button. `list`'s own empty-state fallback (a placeholder sample,
+  right for a freshly-dropped canvas component) would be wrong for a real
+  CRUD list, so Stylesheets still checks for zero rows itself rather than
+  handing that case to `list`. Screens' own row list stayed hand-rolled --
+  each row's content there is a full nested preview render, not a flat row
+  of columns, so `list` genuinely doesn't fit it the way it fits Stylesheets'.
+- Fixed `column.label || column.name` (in both `list` and `form`) treating an
+  intentionally blank `label: ''` -- exactly what Stylesheets' Delete column
+  above needs, having no header text of its own -- as if label had been
+  omitted entirely, silently showing the data key instead. Extracted the
+  now-shared `fn.component._.columnLabel` to check for `undefined`
+  specifically, so both callers (and their `renderPreviewNode` counterparts)
+  respect an explicit empty label the same way.
