@@ -11,14 +11,14 @@ truth for this app, not kept in sync with mini-framework's.
 - `fn.js` -- core primitives, unchanged from mini-framework except one addition:
   `fn.component.create` stamps `el._.name` with the layout name that created
   each element. `layout.js`'s `serializeComponent` depends on this to tell a
-  `'box'` from a `'text'` after the fact.
+  `'div'` from a `'text'` after the fact.
 - `fn.util.js` -- shared CRUD/UI-wiring helpers, diverged from mini-framework:
   - `fn.util.route` gained `opt.style` (styles its own wrapper div), needed so
     a routed screen can flex-fill its container instead of sizing to content.
   - `fn.util.enableDrop({ el })` was added: wires `dragover`/`drop` so `el`
-    accepts a dropped component by name. Shared by canvas/box/popup.
+    accepts a dropped component by name. Shared by canvas/div/popup.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
-  components (`text`/`box`/`popup`/`button`/`textarea`/`list`) ->
+  components (`text`/`div`/`popup`/`button`/`textarea`/`list`) ->
   `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
   `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
 - `app.js` -- mounts `shell` into `document.body`. Nothing else.
@@ -52,8 +52,8 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `textarea` -- a real `<textarea>`, edited via its own `.value` (not
   contenteditable -- a form control already has its own editing).
 - `list` -- a `<table>`; every cell is its own contenteditable `td`/`th`.
-- `box`, `popup` -- containers. Both set `el.content` to wherever their
-  children/drops actually go (`box.content = box` itself; `popup.content` is
+- `div`, `popup` -- containers. Both set `el.content` to wherever their
+  children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new
   container component must do the same** -- `serializeComponent`,
   `enableDrop`, and `renderPreviewNode` all key off `el.content`/
@@ -63,13 +63,13 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 
 1. Register it via `fn.component.layout.set`, mark its root `.__component`.
 2. Add it to `builder`'s default palette list (`opt.components || [...]`).
-3. If it's a container: set `el.content` (see `box`/`popup`). If it's a leaf
+3. If it's a container: set `el.content` (see `div`/`popup`). If it's a leaf
    whose live value lives somewhere other than `.textContent` (like
    `textarea`'s `.value`), add a branch to `serializeComponent` -- skipping
    this silently saves stale/wrong data into a screen. (This already
-   happened once: `button`'s label would've been lost before the box/leaf
+   happened once: `button`'s label would've been lost before the div/leaf
    check in `serializeComponent`/`renderPreviewNode` was generalized around
-   `el.content`/`node.children` instead of hardcoding `'box'`.)
+   `el.content`/`node.children` instead of hardcoding `'div'`.)
 4. If `renderPreviewNode` needs to render it as something other than "plain
    text" or "container with children" (see `list`'s table branch), add a
    branch there too.

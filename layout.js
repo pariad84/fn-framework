@@ -63,24 +63,24 @@
     });
 
     fn.component.layout.set({
-        name : 'box',
+        name : 'div',
         layout : function(opt) {
-            var box = fn.element.create({
+            var div = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__component' },
                 style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #d9dce1' },
                 parent : opt.parent,
             });
-            // .content marks where a container's own children/drops go -- for box that's just
+            // .content marks where a container's own children/drops go -- for div that's just
             // itself; popup (below) sets it to an inner div instead, since its header isn't a
             // drop target. serializeComponent reads any el.content as "this is a container".
-            box.content = box;
-            fn.util.enableDrop({ el : box.content });
-            return box;
+            div.content = div;
+            fn.util.enableDrop({ el : div.content });
+            return div;
         },
     });
 
-    // Chrome around the same drop-target content area box has, styled like a modal card
+    // Chrome around the same drop-target content area div has, styled like a modal card
     // (fn.component.layout.js's popup convention) but rendered inline rather than
     // position:fixed, since this is the design canvas, not a live running page. The close "✕"
     // is purely visual here -- clicking it just selects the popup like clicking anywhere else
@@ -187,7 +187,7 @@
 
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
-    // each element. A container (box, popup -- anything that sets its own el.content, see box's
+    // each element. A container (div, popup -- anything that sets its own el.content, see div's
     // comment above) walks el.content's children; 'list' reads its grid of cell text; 'textarea'
     // reads its own .value (a real form control's live value, unlike contenteditable, never
     // shows up in .textContent); anything else (text/button) is read as its own contenteditable
@@ -256,7 +256,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'textarea', 'list', 'popup' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'div', 'button', 'textarea', 'list', 'popup' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
@@ -357,7 +357,7 @@
                 style : { flex : '1', padding : '16px', overflowY : 'auto', background : '#eef0f3' },
                 event : {
                     // Delegated from the canvas root rather than attached per component, so it
-                    // keeps working no matter how deeply text/box end up nested inside each
+                    // keeps working no matter how deeply text/div end up nested inside each
                     // other. .closest('.__component') starting from e.target always resolves to
                     // the innermost component under the click, since e.target is already that
                     // deepest element (or one of its own children, for text's own contents).
@@ -540,7 +540,7 @@
 
     // Read-only rendering of one saved node -- deliberately plain elements rather than
     // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // box/popup/canvas's own drop handling or text/button/list's contenteditable.
+    // div/popup/canvas's own drop handling or text/button/list's contenteditable.
     fn.component._.renderPreviewNode = function(node) {
         if (node.type === 'list') {
             var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
