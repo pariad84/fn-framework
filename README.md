@@ -8,11 +8,12 @@ the directory, e.g. `npx serve .`) to use it.
 
 ## Three tabs
 
-- **Builder** -- drag components (`text`, `span`, `div`, `popup`, `button`,
-  `textarea`, `list`, `form`) from the left palette onto the canvas. Whatever
-  you're currently dragging over -- the canvas, a `div`, or a `popup`'s
-  content area -- highlights with a dashed blue outline, so it's always
-  clear where a drop will land. Every component automatically looks like its
+- **Builder** -- drag components (`text`, `span`, `h1`, `h2`, `h3`, `div`,
+  `popup`, `button`, `textarea`, `list`, `form`) from the left palette onto
+  the canvas. Whatever you're currently dragging over -- the canvas, a
+  `div`, or a `popup`'s content area -- highlights with a dashed blue
+  outline, so it's always clear where a drop will land. Every component
+  automatically looks like its
   own type's stylesheet (edited on the Stylesheets tab) and re-syncs to it
   each time it's reselected, no picking required. Click one to see and edit
   its attributes on the right -- including its text label, for components
@@ -186,3 +187,17 @@ the directory, e.g. `npx serve .`) to use it.
   an edited 'list' stylesheet visibly distort the Stylesheets tab's own
   chrome -- fixed with `opt.skipStylesheet` on `list`, passed only by that
   one internal usage.
+- Added `h1`/`h2`/`h3` as their own components, real heading tags rather
+  than reusing `text`'s `<div>` with a bigger font -- they needed to show up
+  as their own rows in Stylesheets (one per component type, per the fix
+  above), and a real page mockup calling something a "title" should
+  actually be a heading, not a div dressed up as one. Otherwise the exact
+  same plain text-leaf shape as `text`/`span`: no new branches needed
+  anywhere else in `layout.js` (`serializeComponent`'s plain-textContent
+  fallback, `renderPreviewNode`'s same fallback, and
+  `renderAttributeRows`'s `textTarget` all already generalize over "any
+  leaf that isn't list/form/textarea/popup", which a new heading type falls
+  into for free) -- confirming that generalization was worth doing the
+  first time a genuinely new leaf component showed up. `margin: '0'` on
+  each overrides the browser's own default heading margin, so dropping one
+  doesn't introduce whitespace none of this app's other components have.

@@ -34,9 +34,9 @@ truth for this app, not kept in sync with mini-framework's.
     (set/cleared here) to tell "move this existing element" from "create a new
     one" on drop.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
-  components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`/`form`) ->
-  `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
-  `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
+  components (`text`/`span`/`h1`/`h2`/`h3`/`div`/`popup`/`button`/`textarea`/
+  `list`/`form`) -> `serializeComponent` -> `builder`/`palette`/`canvas`/
+  `attributes-panel` -> `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
 - `app.js` -- seeds one sample stylesheet per registered component (see "The app itself" below),
   then mounts `shell` into `document.body`.
 - `index.html` -- just the four `<script>` tags in load order (fn.js,
@@ -93,6 +93,11 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `text`, `span`, `button` -- a plain div/span/button; the label is `el.textContent`,
   edited via attributes-panel's text field (see below), not directly on
   canvas (`text` block-level, `span` inline).
+- `h1`, `h2`, `h3` -- real `<h1>`/`<h2>`/`<h3>` tags, otherwise the same plain
+  text-leaf shape as `text`/`span` above (label in `el.textContent`, edited
+  via attributes-panel's text field). `margin: '0'` overrides the browser's
+  own default heading margin, so dropping one doesn't introduce whitespace
+  none of this app's other components have.
 - `textarea` -- a real `<textarea>`, edited via its own `.value`.
 - `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
   `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`

@@ -52,12 +52,12 @@
     // Keeps every instance of a component in sync with its own type's stylesheet (e.g. every
     // `text` component always looks like the 'text' row under fn.data's 'stylesheets' key,
     // seeded one-per-type by app.js) -- replaces having a user pick a stylesheet by hand per
-    // component and remember which one they picked, since there's nothing left to choose: eight
-    // component types is a small, fixed, real set the Stylesheets tab already covers one-to-one.
+    // component and remember which one they picked, since there's nothing left to choose: a
+    // small, fixed, real set of component types the Stylesheets tab already covers one-to-one.
     // typeName is passed explicitly rather than read from el._.name, since fn.component.create
-    // (fn.js) only stamps el._.name *after* a layout function returns -- each of the eight
-    // layouts below already knows its own name statically, being the one place registered under
-    // it. Called once at creation (below, in each component's own layout) and again on selection
+    // (fn.js) only stamps el._.name *after* a layout function returns -- each layout below
+    // already knows its own name statically, being the one place registered under it. Called
+    // once at creation (below, in each component's own layout) and again on selection
     // (selectComponent below), so a stylesheet edited after a component was dropped is picked up
     // the next time that component is looked at, not just baked in once and forgotten.
     fn.component._.applyTypeStylesheet = function(el, typeName) {
@@ -100,6 +100,57 @@
             fn.component._.applyTypeStylesheet(span, 'span');
             fn.util.enableDrag({ el : span });
             return span;
+        },
+    });
+
+    // Real <h1>/<h2>/<h3> tags -- plain text leaves like text/span above, just headings.
+    // margin:'0' overrides the browser's own default heading margin, so dropping one doesn't
+    // introduce surprise whitespace the way every other component here doesn't either.
+    fn.component.layout.set({
+        name : 'h1',
+        layout : function(opt) {
+            var h1 = fn.element.create({
+                tagName : 'h1',
+                attribute : { class : '__component' },
+                text : (opt.data && opt.data.text) || 'Heading 1',
+                style : { margin : '0', padding : '4px', minWidth : '20px', fontSize : '28px', fontWeight : '700', outline : 'none' },
+                parent : opt.parent,
+            });
+            fn.component._.applyTypeStylesheet(h1, 'h1');
+            fn.util.enableDrag({ el : h1 });
+            return h1;
+        },
+    });
+
+    fn.component.layout.set({
+        name : 'h2',
+        layout : function(opt) {
+            var h2 = fn.element.create({
+                tagName : 'h2',
+                attribute : { class : '__component' },
+                text : (opt.data && opt.data.text) || 'Heading 2',
+                style : { margin : '0', padding : '4px', minWidth : '20px', fontSize : '22px', fontWeight : '700', outline : 'none' },
+                parent : opt.parent,
+            });
+            fn.component._.applyTypeStylesheet(h2, 'h2');
+            fn.util.enableDrag({ el : h2 });
+            return h2;
+        },
+    });
+
+    fn.component.layout.set({
+        name : 'h3',
+        layout : function(opt) {
+            var h3 = fn.element.create({
+                tagName : 'h3',
+                attribute : { class : '__component' },
+                text : (opt.data && opt.data.text) || 'Heading 3',
+                style : { margin : '0', padding : '4px', minWidth : '20px', fontSize : '18px', fontWeight : '600', outline : 'none' },
+                parent : opt.parent,
+            });
+            fn.component._.applyTypeStylesheet(h3, 'h3');
+            fn.util.enableDrag({ el : h3 });
+            return h3;
         },
     });
 
@@ -387,7 +438,7 @@
                 style : { display : 'flex', flex : '1', minHeight : '0' },
             });
 
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : builder });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'h1', 'h2', 'h3', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : builder });
 
             // The toolbar sits only above canvas, not the full builder width -- wrapping canvas
             // in its own flex column (rather than putting the toolbar back at the builder level)
