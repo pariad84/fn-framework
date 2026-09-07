@@ -759,69 +759,25 @@
         },
     });
 
-    // Read-only rendering of one saved node -- deliberately plain elements rather than
-    // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // div/popup/canvas's own drop handling or any component's own draggability.
-    fn.component._.renderPreviewNode = function(node) {
+    // Inverse of serializeComponent -- rebuilds a live, editable canvas component from a saved
+    // node, so Screens' Load button can put it back on the Builder canvas. Applies node.style
+    // directly (may differ from the type's current stylesheet if it was edited since saving).
+    fn.component._.deserializeComponent = function(node, parent) {
+        var el;
         if (node.type === 'list') {
-            var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
-            var headerRow = fn.element.create({ tagName : 'tr', parent : table });
-            node.data.columns.forEach(function(column) {
-                fn.element.create({
-                    tagName : 'th',
-                    text : fn.component._.columnLabel(column),
-                    style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
-                    parent : headerRow,
-                });
-            });
-            node.data.datas.forEach(function(data) {
-                var tr = fn.element.create({ tagName : 'tr', parent : table });
-                node.data.columns.forEach(function(column) {
-                    fn.element.create({
-                        tagName : 'td',
-                        text : data[column.name],
-                        style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
-                        parent : tr,
-                    });
-                });
-            });
-            return table;
-        }
-
-        if (node.type === 'form') {
-            var form = fn.element.create({ tagName : 'div', style : Object.assign({ display : 'flex', flexDirection : 'column', gap : '10px', padding : '10px', border : '1px dashed #d9dce1', minWidth : '200px' }, node.style) });
-            node.data.columns.forEach(function(column) {
-                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
-                fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
-                var fieldForm = Object.assign({}, column.form);
-                var tagName = fieldForm.tagName || 'input';
-                delete fieldForm.tagName;
-                fn.element.create({
-                    tagName : tagName,
-                    attribute : Object.assign(
-                        tagName === 'input' ? { type : 'text', value : node.data.data[column.name] || '' } : {},
-                        { readonly : 'true' },
-                        fieldForm
-                    ),
-                    text : tagName === 'textarea' ? (node.data.data[column.name] || '') : undefined,
-                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', font : 'inherit', pointerEvents : 'none' },
-                    parent : field,
-                });
-            });
-            return form;
-        }
-
-        var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
-        if (node.children) {
-            if (node.type === 'popup') {
-                fn.element.create({ tagName : 'div', text : node.data.title, style : { fontWeight : '600' }, parent : el });
-            }
+            el = fn.component.create({ name : 'list', datas : node.data.datas, columns : node.data.columns, parent : parent });
+        } else if (node.type === 'form') {
+            el = fn.component.create({ name : 'form', data : node.data.data, columns : node.data.columns, parent : parent });
+        } else if (node.children) {
+            el = fn.component.create({ name : node.type, data : node.type === 'popup' ? { title : node.data.title } : {}, parent : parent });
             node.children.forEach(function(child) {
-                el.appendChild(fn.component._.renderPreviewNode(child));
+                fn.component._.deserializeComponent(child, el.content);
             });
         } else {
-            el.textContent = node.data.text;
+            el = fn.component.create({ name : node.type, data : { text : node.data.text }, parent : parent });
         }
+        el._.opt.style = Object.assign({}, el._.opt.style, node.style);
+        Object.keys(node.style || {}).forEach(function(key) { el.style[key] = node.style[key]; });
         return el;
     };
 
@@ -858,6 +814,23 @@
                         parent : item,
                     });
                     fn.element.create({ tagName : 'div', text : row.name, style : { fontWeight : '600' }, parent : header });
+                    var actions = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '6px' }, parent : header });
+                    fn.element.create({
+                        tagName : 'button',
+                        attribute : { type : 'button' },
+                        text : 'Load',
+                        event : { click : function() {
+                            location.hash = '#/';
+                            setTimeout(function() {
+                                var canvas = document.querySelector('.__canvas');
+                                Array.from(canvas.children)
+                                    .filter(function(child) { return child.classList.contains('__component'); })
+                                    .forEach(function(child) { child.remove(); });
+                                row.tree.forEach(function(node) { fn.component._.deserializeComponent(node, canvas); });
+                            }, 0);
+                        } },
+                        parent : actions,
+                    });
                     fn.element.create({
                         tagName : 'button',
                         attribute : { type : 'button' },
@@ -866,7 +839,7 @@
                             fn.data.delete({ key : 'screens', id : row.id });
                             list.refresh();
                         } },
-                        parent : header,
+                        parent : actions,
                     });
 
                     var preview = fn.element.create({
