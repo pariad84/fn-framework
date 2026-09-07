@@ -9,7 +9,10 @@ the directory, e.g. `npx serve .`) to use it.
 ## Three tabs
 
 - **Builder** -- drag components (`text`, `span`, `div`, `popup`, `button`,
-  `textarea`, `list`, `form`) from the left palette onto the canvas. Click one to see
+  `textarea`, `list`, `form`) from the left palette onto the canvas. Whatever
+  you're currently dragging over -- the canvas, a `div`, or a `popup`'s
+  content area -- highlights with a dashed blue outline, so it's always
+  clear where a drop will land. Click one to see
   and edit its attributes on the right -- including its text label, for
   components that have one -- and to apply a saved stylesheet from a
   dropdown. Right-click one for a Delete option. Nest components inside a
@@ -129,3 +132,22 @@ the directory, e.g. `npx serve .`) to use it.
   each seed is read back from an actually-created instance of that
   component's own `el._.opt.style` -- the same field the attributes panel
   itself already reads to show a selected component's style rows.
+- Dragging a component gave no visual sign of where it would actually land
+  -- canvas/div/popup all accepted drops identically, but nothing showed
+  which one was about to receive it. `fn.util.enableDrop` now takes an
+  optional `dropOutline` and applies it to `opt.el` for as long as a drag is
+  over it, the color/style itself passed in by the caller (canvas/div/popup
+  in `layout.js`) rather than hardcoded in `fn.util.js`, matching how
+  `opt.style` already works on `fn.util.newButton`/`fn.util.route` -- this
+  file holds no styling of its own. Dashed rather than the selected-outline's
+  solid, since the two can legitimately apply to the same element at once
+  (dragging over an already-selected container) and needed to read as
+  different states; the previous outline is saved and restored rather than
+  assumed blank, so that case doesn't lose the selection outline once the
+  drag ends. Highlighting only the innermost target under the cursor (not
+  also its ancestor canvas/div) came for free from `dragover`'s own
+  `stopPropagation`, already there for the same reason `drop` needed it.
+  Cleared unconditionally on `dragend` -- which a palette-started drag fires
+  too, even though it never calls `enableDrag` -- so a drag cancelled
+  outside any drop target, or outside the window, never leaves a stale
+  highlight.

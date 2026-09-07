@@ -113,6 +113,27 @@
         });
     };
 
+    // Highlights whichever drop target a drag is currently over, opt.dropOutline (the actual
+    // outline value, e.g. '3px dashed #2563eb') is the one thing expected to differ per app's
+    // visual theme the way opt.style already is elsewhere in this file, so it's passed in by the
+    // caller (canvas/div/popup in layout.js) rather than hardcoded here. dragover's own
+    // stopPropagation below means only the innermost target under the cursor ever highlights at
+    // once -- hovering a div nested in canvas only lights up the div, not canvas underneath it,
+    // the same targeting dragover/drop already had. Saves and restores whatever outline the
+    // target already had (e.g. layout.js's own selection outline on a currently-selected
+    // container) instead of assuming none, and clears unconditionally on dragend regardless of
+    // which element started the drag (a palette item never calls enableDrag) so a drag cancelled
+    // outside any drop target, or outside the window entirely, never leaves a stale highlight.
+    var dropTarget = null;
+    var dropTargetOutline = '';
+    function clearDropHighlight() {
+        if (dropTarget) {
+            dropTarget.style.outline = dropTargetOutline;
+            dropTarget = null;
+        }
+    }
+    document.addEventListener('dragend', clearDropHighlight);
+
     // Was written as the page builder's own fn.component._.enableDrop, for both its `canvas`
     // and its `div` (a div needing to accept drops itself, the same way the canvas does, is what
     // makes text/div nestable inside a div at all). Wiring an element to accept a dropped
@@ -129,10 +150,17 @@
         opt.el.addEventListener('dragover', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            if (dropTarget !== opt.el) {
+                clearDropHighlight();
+                dropTargetOutline = opt.el.style.outline;
+                opt.el.style.outline = opt.dropOutline || '';
+                dropTarget = opt.el;
+            }
         });
         opt.el.addEventListener('drop', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            clearDropHighlight();
             var dragged = fn.component._.draggedComponent;
             if (dragged) {
                 if (dragged !== opt.el && !dragged.contains(opt.el)) {

@@ -15,8 +15,20 @@ truth for this app, not kept in sync with mini-framework's.
 - `fn.util.js` -- shared CRUD/UI-wiring helpers, diverged from mini-framework:
   - `fn.util.route` gained `opt.style` (styles its own wrapper div), needed so
     a routed screen can flex-fill its container instead of sizing to content.
-  - `fn.util.enableDrop({ el })` was added: wires `dragover`/`drop` so `el`
-    accepts a dropped component by name. Shared by canvas/div/popup.
+  - `fn.util.enableDrop({ el, dropOutline })` was added: wires `dragover`/`drop`
+    so `el` accepts a dropped component by name. Shared by canvas/div/popup.
+    While a drag is over `el`, it's highlighted with `dropOutline` (a CSS
+    outline value, e.g. `'3px dashed #2563eb'`) -- the value itself is passed
+    in by the caller rather than hardcoded here, the same `opt.style`-is-the
+    -caller's-business pattern `fn.util.route`/`fn.util.newButton` already
+    use, since this file holds no styling of its own (see its own top
+    comment). Only the innermost target under the cursor ever highlights
+    (dragover's own `stopPropagation` below already gave it that targeting).
+    Whatever outline `el` already had (e.g. layout.js's own selection
+    outline on a currently-selected container) is saved and restored rather
+    than assumed empty, and cleared unconditionally on `dragend` -- including
+    a palette-started drag, which never calls `enableDrag` -- so a drag
+    cancelled outside any drop target never leaves a stale highlight.
   - `fn.util.enableDrag({ el })` was added: marks `el` as a drag source for
     repositioning itself. `enableDrop` checks `fn.component._.draggedComponent`
     (set/cleared here) to tell "move this existing element" from "create a new
@@ -207,5 +219,10 @@ hooks.
 Bright/light theme: white panels (`#ffffff`) on a light gray page/canvas
 background (`#f4f5f7` page, `#eef0f3` canvas), dark text (`#1f2328`), muted
 gray secondary text (`#6b7280`), light gray borders/separators (`#d9dce1` /
-`#e8eaed`), blue accent for links and the selected-component outline
-(`#2563eb`). Match these rather than introducing new ad hoc colors.
+`#e8eaed`), blue accent for links, the selected-component outline
+(`solid 2px #2563eb`), and the active-drop-target outline while dragging
+(`dashed 3px #2563eb`, passed as `fn.util.enableDrop`'s `dropOutline` from
+canvas/div/popup in `layout.js` -- dashed specifically so it reads
+differently from a solid selection outline when both could apply to the
+same element at once, e.g. dragging something over an already-selected
+container). Match these rather than introducing new ad hoc colors.

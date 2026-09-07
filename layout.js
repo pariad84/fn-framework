@@ -92,7 +92,7 @@
             // itself; popup (below) sets it to an inner div instead, since its header isn't a
             // drop target. serializeComponent reads any el.content as "this is a container".
             div.content = div;
-            fn.util.enableDrop({ el : div.content });
+            fn.util.enableDrop({ el : div.content, dropOutline : '3px dashed #2563eb' });
             fn.util.enableDrag({ el : div });
             return div;
         },
@@ -132,7 +132,7 @@
                 style : { minHeight : '60px', margin : '10px', padding : '10px', border : '1px dashed #d9dce1' },
                 parent : popup,
             });
-            fn.util.enableDrop({ el : popup.content });
+            fn.util.enableDrop({ el : popup.content, dropOutline : '3px dashed #2563eb' });
             fn.util.enableDrag({ el : popup });
 
             return popup;
@@ -505,7 +505,7 @@
                     },
                 },
             });
-            fn.util.enableDrop({ el : canvas });
+            fn.util.enableDrop({ el : canvas, dropOutline : '3px dashed #2563eb' });
             return canvas;
         },
     });
