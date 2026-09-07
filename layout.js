@@ -175,8 +175,8 @@
     // 'b' }, ...]), the same shape fn.data.select-backed lists elsewhere in this codebase use.
     // opt.columns (optional) is [{ name, label, list, form }, ...] -- name indexes into each
     // datas row, label is the header text (falls back to name), list is extra style merged onto
-    // that column's th/td (e.g. { width: '160px' }), and form is carried through unused by this
-    // component (no form component exists in this app yet) for a future one to read. Without
+    // that column's th/td (e.g. { width: '160px' }), and form is carried through unused here --
+    // it's `form`'s own field below (opt.columns is the one shape both components share). Without
     // opt.columns, columns default to the first row's own keys (label === name, no extra style).
     // Cells aren't editable on canvas (see the text/span/button/popup note below for why none of
     // this app's components are anymore) and there's no single string to plug into
@@ -227,18 +227,57 @@
         },
     });
 
+    // A single-record counterpart to `list`, sharing its opt.columns shape ({ name, label, list,
+    // form }) but reading column.form instead of column.list (list's per-cell style has no
+    // meaning for a field laid out top-to-bottom) and opt.data -- one plain object, since a form
+    // shows one record rather than a row-per-object array. Each field is a real <input>
+    // (attribute.type from column.form, defaulting to 'text') for visual fidelity with an actual
+    // form, but readonly and pointer-events:none: unlike list's plain-text td/th, an <input> is
+    // natively focusable/selectable, which is exactly the contenteditable-vs-draggable conflict
+    // documented above for text/span/button -- pointer-events:none routes every mousedown past
+    // the field straight to the form's own draggable root instead of letting the browser treat
+    // it as a text-selection drag.
+    fn.component.layout.set({
+        name : 'form',
+        layout : function(opt) {
+            var data = opt.data || {};
+            var columns = (opt.columns && opt.columns.length) ? opt.columns
+                : Object.keys(data).map(function(name) { return { name : name, label : name }; });
+            var form = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { display : 'flex', flexDirection : 'column', gap : '10px', padding : '10px', border : '1px dashed #d9dce1', minWidth : '200px' },
+                parent : opt.parent,
+            });
+            columns.forEach(function(column) {
+                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
+                fn.element.create({ tagName : 'label', text : column.label || column.name, style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                fn.element.create({
+                    tagName : 'input',
+                    attribute : Object.assign({ type : 'text', value : data[column.name] || '', readonly : 'true' }, column.form),
+                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                    parent : field,
+                });
+            });
+            form.data = data;
+            form.columns = columns;
+            fn.util.enableDrag({ el : form });
+            return form;
+        },
+    });
+
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
     // each element. A container (div, popup -- anything that sets its own el.content, see div's
-    // comment above) walks el.content's children; 'list' reads back the el.datas/el.columns the
-    // `list` layout already stashed on it (see that layout's own comment for why those, and not
-    // el._.opt.datas/columns or the rendered th/td text, are the source of truth here); 'textarea'
-    // reads its own .value (a real form control's live value, unlike a plain div/span/button,
-    // never shows up in .textContent); anything else (text/span/button) is read as its own
-    // textContent, kept current by attributes-panel's text field (see renderAttributeRows) rather
-    // than by editing on canvas -- see that field's comment for why. Reads all of these live
-    // rather than the original opt.data, since editing only ever changes the DOM/value, never
-    // that original opt.
+    // comment above) walks el.content's children; 'list'/'form' read back the el.datas/el.columns
+    // or el.data/el.columns those layouts already stashed on themselves (see each layout's own
+    // comment for why those, and not el._.opt or rendered DOM text, are the source of truth
+    // here); 'textarea' reads its own .value (a real form control's live value, unlike a plain
+    // div/span/button, never shows up in .textContent); anything else (text/span/button) is read
+    // as its own textContent, kept current by attributes-panel's text field (see
+    // renderAttributeRows) rather than by editing on canvas -- see that field's comment for why.
+    // Reads all of these live rather than the original opt.data, since editing only ever changes
+    // the DOM/value, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -250,6 +289,8 @@
             }
         } else if (el._.name === 'list') {
             node.data = { datas : el.datas, columns : el.columns };
+        } else if (el._.name === 'form') {
+            node.data = { data : el.data, columns : el.columns };
         } else if (el._.name === 'textarea') {
             node.data = { text : el.value };
         } else {
@@ -300,7 +341,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'popup' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
@@ -445,7 +486,7 @@
         // them on canvas. popup's title lives in a child (.__popup-title), not its own
         // textContent, since a popup's textContent would also include its children's text.
         var textTarget = el._.name === 'popup' ? el.querySelector('.__popup-title')
-            : (!el.content && el._.name !== 'list' && el._.name !== 'textarea') ? el
+            : (!el.content && el._.name !== 'list' && el._.name !== 'form' && el._.name !== 'textarea') ? el
             : null;
         if (textTarget) {
             var textInput = fn.element.create({
@@ -633,6 +674,21 @@
                 });
             });
             return table;
+        }
+
+        if (node.type === 'form') {
+            var form = fn.element.create({ tagName : 'div', style : Object.assign({ display : 'flex', flexDirection : 'column', gap : '10px', padding : '10px', border : '1px dashed #d9dce1', minWidth : '200px' }, node.style) });
+            node.data.columns.forEach(function(column) {
+                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
+                fn.element.create({ tagName : 'label', text : column.label || column.name, style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                fn.element.create({
+                    tagName : 'input',
+                    attribute : Object.assign({ type : 'text', value : node.data.data[column.name] || '', readonly : 'true' }, column.form),
+                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                    parent : field,
+                });
+            });
+            return form;
         }
 
         var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });

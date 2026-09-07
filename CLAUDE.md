@@ -22,7 +22,7 @@ truth for this app, not kept in sync with mini-framework's.
     (set/cleared here) to tell "move this existing element" from "create a new
     one" on drop.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
-  components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`) ->
+  components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`/`form`) ->
   `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
   `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
 - `app.js` -- mounts `shell` into `document.body`. Nothing else.
@@ -67,14 +67,23 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   (`[{ name, label, list, form }, ...]`): `name` indexes into each `datas`
   row, `label` is the header text (falls back to `name`), `list` is extra
   style merged onto that column's `th`/`td` (e.g. `{ width: '160px' }`), and
-  `form` rides along unused (no `form` component exists in this app yet, but
-  nothing about the shape assumes that stays true). Without `opt.columns`,
-  columns default to the first row's own keys. Cell content is fixed at drop
-  time (no on-canvas or attributes-panel editing -- see the `list` layout's
-  own comment for why); the resolved `datas`/`columns` are stashed directly
-  on the table element (`el.datas`/`el.columns`) rather than reconstructed
-  from the rendered header/cell text, since `label` and `name` can now
-  differ.
+  `form` rides along unused here -- it's `form`'s own field below. Without
+  `opt.columns`, columns default to the first row's own keys. Cell content
+  is fixed at drop time (no on-canvas or attributes-panel editing -- see the
+  `list` layout's own comment for why); the resolved `datas`/`columns` are
+  stashed directly on the table element (`el.datas`/`el.columns`) rather
+  than reconstructed from the rendered header/cell text, since `label` and
+  `name` can now differ.
+- `form` -- `list`'s single-record counterpart: same `opt.columns` shape,
+  but `opt.data` is one plain object (not an array) and each field reads
+  `column.form` instead of `column.list` (a row-per-object array's per-cell
+  style has no meaning laid out top-to-bottom). Renders a real `<input>` per
+  column (`attribute.type` from `column.form`, defaulting to `'text'`) for
+  visual fidelity, but `readonly` and `pointer-events: none` -- an `<input>`
+  is natively focusable/selectable the same way `contenteditable` was (see
+  below), so without that it would reopen the exact drag-vs-select conflict
+  removing `contenteditable` was fixing. `el.data`/`el.columns` are stashed
+  on the element the same way `list` stashes `el.datas`/`el.columns`.
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new
@@ -95,7 +104,7 @@ for arranging components, not for typing into them on canvas -- see
 `renderAttributeRows`'s `textTarget` in `layout.js` for the one place that
 decides which element's text a selected component's field edits (`el` itself
 for a leaf, `el.querySelector('.__popup-title')` for `popup`, nothing for
-`list`/`textarea`/`div`).
+`list`/`form`/`textarea`/`div`).
 
 ## When adding a new component
 
@@ -116,10 +125,11 @@ for a leaf, `el.querySelector('.__popup-title')` for `popup`, nothing for
    If it's a leaf whose whole content is one editable string in `.textContent`
    (like `text`/`span`/`button`), it's already covered by `renderAttributeRows`'s
    `textTarget` fallback (`!el.content && el._.name !== 'list' && el._.name !==
-   'textarea'`) -- no extra wiring needed. If it keeps that string somewhere
-   else (like `popup`'s title), add a case to `textTarget` instead. Do **not**
-   make it `contenteditable` to edit it on canvas instead -- see "Components"
-   above for why that conflicts with `enableDrag`.
+   'form' && el._.name !== 'textarea'`) -- no extra wiring needed. If it keeps
+   that string somewhere else (like `popup`'s title), add a case to
+   `textTarget` instead. Do **not** make it `contenteditable` to edit it on
+   canvas instead -- see "Components" above for why that conflicts with
+   `enableDrag`.
 5. `node --check layout.js`, then verify in a real browser via Playwright --
    drop it (and nest it, if it's a container), select it and check the
    attributes panel, save a screen containing it and check the Screens tab

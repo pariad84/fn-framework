@@ -9,7 +9,7 @@ the directory, e.g. `npx serve .`) to use it.
 ## Three tabs
 
 - **Builder** -- drag components (`text`, `span`, `div`, `popup`, `button`,
-  `textarea`, `list`) from the left palette onto the canvas. Click one to see
+  `textarea`, `list`, `form`) from the left palette onto the canvas. Click one to see
   and edit its attributes on the right -- including its text label, for
   components that have one -- and to apply a saved stylesheet from a
   dropdown. Right-click one for a Delete option. Nest components inside a
@@ -73,3 +73,12 @@ the directory, e.g. `npx serve .`) to use it.
   `datas`/`columns` directly on the table element for `serializeComponent`
   to read back, the same way `div`/`popup` already stash `.content`, instead
   of scraping the rendered table.
+- Added `form`, `list`'s single-record counterpart: same `opt.columns` shape
+  but `opt.data` is one object instead of an array, and each field reads
+  `column.form` instead of `column.list`. Rendering each field as a real
+  `<input>` for visual fidelity reopened the exact contenteditable-vs-drag
+  conflict removing `contenteditable` had just fixed, since a focusable
+  input is just as ambiguous a drag-start point as a contenteditable div was
+  -- fixed with `readonly` plus `pointer-events: none`, so a drag starting
+  inside a field always reaches the form's own `enableDrag` instead of the
+  browser's native text-selection handling.
