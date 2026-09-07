@@ -24,4 +24,127 @@
             });
         },
     });
+
+    // Referenced by canvas/attributes-panel below via .closest('.__builder'), the same
+    // self-contained convention popup/close-btn/save-btn already use.
+    fn.component.layout.set({
+        name : 'builder',
+        layout : function(opt = {components : []}) {
+            var builder = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__builder' },
+                style : { display : 'flex', height : '100vh' },
+            });
+
+            fn.component.create({ name : 'palette', components : opt.components, parent : builder });
+            fn.component.create({ name : 'canvas', parent : builder });
+            fn.component.create({ name : 'attributes-panel', parent : builder });
+
+            return builder;
+        },
+    });
+
+    fn.component.layout.set({
+        name : 'palette',
+        layout : function(opt = {components : []}) {
+            var palette = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__palette' },
+                style : {
+                    width : '160px', flexShrink : '0', display : 'flex', flexDirection : 'column',
+                    gap : '8px', padding : '12px', borderRight : '1px solid #3a3f4b', overflowY : 'auto',
+                },
+            });
+
+            opt.components.forEach(function(name) {
+                fn.element.create({
+                    tagName : 'div',
+                    text : name,
+                    attribute : { draggable : 'true' },
+                    style : { padding : '8px 12px', background : '#1e2128', border : '1px solid #3a3f4b', borderRadius : '6px', cursor : 'grab' },
+                    event : { dragstart : function(e) { e.dataTransfer.setData('text/plain', name); } },
+                    parent : palette,
+                });
+            });
+
+            return palette;
+        },
+    });
+
+    fn.component.layout.set({
+        name : 'canvas',
+        layout : function(opt = {}) {
+            var canvas = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__canvas' },
+                style : { flex : '1', padding : '16px', overflowY : 'auto', background : '#0f1115' },
+                event : {
+                    dragover : function(e) { e.preventDefault(); },
+                    drop : function(e) {
+                        e.preventDefault();
+                        var name = e.dataTransfer.getData('text/plain');
+                        if (fn.component.layout.get({ name : name })) {
+                            fn.component.create({ name : name, parent : e.currentTarget });
+                        }
+                    },
+                    click : function(e) {
+                        var canvasEl = e.currentTarget;
+                        var selected = Array.from(canvasEl.children).find(function(child) { return child.contains(e.target); });
+                        Array.from(canvasEl.children).forEach(function(child) { child.style.outline = ''; });
+                        if (selected) {
+                            selected.style.outline = '2px solid #8ab4f8';
+                        }
+                        canvasEl.closest('.__builder').querySelector('.__attributes-panel').refresh(selected || null);
+                    },
+                },
+            });
+            return canvas;
+        },
+    });
+
+    // Same shape as `list`'s own tableArea/.refresh(): a stable wrapper the canvas's click
+    // handler finds via .closest('.__builder').querySelector('.__attributes-panel'), which owns
+    // re-rendering its own content in place rather than the canvas reaching into its DOM.
+    fn.component._.renderAttributeRows = function(el) {
+        var wrap = fn.element.create({ tagName : 'div' });
+
+        if (!el) {
+            fn.element.create({ tagName : 'div', text : 'No component selected', style : { color : '#9aa0a6' }, parent : wrap });
+            return wrap;
+        }
+
+        var opt = el._.opt || {};
+        var rows = Object.assign({ tag : el.tagName.toLowerCase() }, opt.attribute || {}, opt.style || {});
+        Object.keys(rows).forEach(function(key) {
+            var row = fn.element.create({
+                tagName : 'div',
+                style : { display : 'flex', justifyContent : 'space-between', gap : '8px', padding : '4px 0', borderBottom : '1px solid #262a33' },
+                parent : wrap,
+            });
+            fn.element.create({ tagName : 'span', text : key, style : { color : '#9aa0a6' }, parent : row });
+            fn.element.create({ tagName : 'span', text : String(rows[key]), parent : row });
+        });
+        return wrap;
+    };
+
+    fn.component.layout.set({
+        name : 'attributes-panel',
+        layout : function(opt = {}) {
+            var panel = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__attributes-panel' },
+                style : { width : '220px', flexShrink : '0', padding : '12px', borderLeft : '1px solid #3a3f4b', overflowY : 'auto' },
+            });
+
+            panel.content = fn.element.create({ tagName : 'div', parent : panel });
+            panel.content.appendChild(fn.component._.renderAttributeRows(null));
+
+            panel.refresh = function(el) {
+                Array.from(panel.content.children).forEach(function(child) { child.remove(); });
+                panel.content.appendChild(fn.component._.renderAttributeRows(el));
+            };
+
+            return panel;
+        },
+    });
 })();
