@@ -133,6 +133,23 @@
         },
     });
 
+    // A native <textarea> -- edited directly like text/button, but through its own .value
+    // rather than contenteditable (a real form control already has its own editing, and
+    // .value is what changes as the user types, not its textContent -- serializeComponent
+    // below reads that instead for this one component).
+    fn.component.layout.set({
+        name : 'textarea',
+        layout : function(opt) {
+            return fn.element.create({
+                tagName : 'textarea',
+                attribute : { class : '__component' },
+                text : (opt.data && opt.data.text) || 'Textarea',
+                style : { padding : '8px', minHeight : '60px', font : 'inherit' },
+                parent : opt.parent,
+            });
+        },
+    });
+
     // A plain <table>: opt.data.rows defaults to a 2-column sample (header row + two data
     // rows); every cell is its own contenteditable td/th, the same "edit the sample content
     // directly on the canvas" convention text/button already use, rather than one
@@ -171,10 +188,11 @@
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
     // each element. A container (box, popup -- anything that sets its own el.content, see box's
-    // comment above) walks el.content's children; 'list' reads its grid of cell text; anything
-    // else (text/button) is read as its own contenteditable text. Reads live text/cells rather
-    // than the original opt.data, since contenteditable typing only ever changes the DOM, never
-    // that original opt.
+    // comment above) walks el.content's children; 'list' reads its grid of cell text; 'textarea'
+    // reads its own .value (a real form control's live value, unlike contenteditable, never
+    // shows up in .textContent); anything else (text/button) is read as its own contenteditable
+    // text. Reads all of these live rather than the original opt.data, since typing only ever
+    // changes the DOM/value, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -188,6 +206,8 @@
             node.data = { rows : Array.from(el.rows).map(function(tr) {
                 return Array.from(tr.children).map(function(cell) { return cell.textContent; });
             }) };
+        } else if (el._.name === 'textarea') {
+            node.data = { text : el.value };
         } else {
             node.data = { text : el.textContent };
         }
@@ -236,7 +256,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'list', 'popup' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'textarea', 'list', 'popup' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
