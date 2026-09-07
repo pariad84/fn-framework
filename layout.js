@@ -172,8 +172,12 @@
     });
 
     // A plain <table>: opt.datas is a row-per-object array (e.g. [{ column1: 'a', column2:
-    // 'b' }, ...]), the same shape fn.data.select-backed lists elsewhere in this codebase use --
-    // column names come from the first row's own keys, and become the header (`th`) text as-is.
+    // 'b' }, ...]), the same shape fn.data.select-backed lists elsewhere in this codebase use.
+    // opt.columns (optional) is [{ name, label, list, form }, ...] -- name indexes into each
+    // datas row, label is the header text (falls back to name), list is extra style merged onto
+    // that column's th/td (e.g. { width: '160px' }), and form is carried through unused by this
+    // component (no form component exists in this app yet) for a future one to read. Without
+    // opt.columns, columns default to the first row's own keys (label === name, no extra style).
     // Cells aren't editable on canvas (see the text/span/button/popup note below for why none of
     // this app's components are anymore) and there's no single string to plug into
     // attributes-panel's text field either, so a list's cell content is fixed at drop time.
@@ -184,7 +188,8 @@
                 { column1 : 'Row 1', column2 : 'Row 1' },
                 { column1 : 'Row 2', column2 : 'Row 2' },
             ];
-            var columns = Object.keys(datas[0]);
+            var columns = (opt.columns && opt.columns.length) ? opt.columns
+                : Object.keys(datas[0]).map(function(name) { return { name : name, label : name }; });
             var table = fn.element.create({
                 tagName : 'table',
                 attribute : { class : '__component' },
@@ -195,8 +200,8 @@
             columns.forEach(function(column) {
                 fn.element.create({
                     tagName : 'th',
-                    text : column,
-                    style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
+                    text : column.label || column.name,
+                    style : Object.assign({ border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' }, column.list),
                     parent : headerRow,
                 });
             });
@@ -205,12 +210,18 @@
                 columns.forEach(function(column) {
                     fn.element.create({
                         tagName : 'td',
-                        text : data[column],
-                        style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
+                        text : data[column.name],
+                        style : Object.assign({ border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' }, column.list),
                         parent : tr,
                     });
                 });
             });
+            // Resolved datas/columns are stashed directly on the element (the same idiom as
+            // div/popup's own .content) rather than left for serializeComponent to reconstruct
+            // from the rendered th/td text -- label (shown) and name (the actual data key) can
+            // now differ, so header text alone is no longer enough to recover the original shape.
+            table.datas = datas;
+            table.columns = columns;
             fn.util.enableDrag({ el : table });
             return table;
         },
@@ -219,16 +230,15 @@
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
     // each element. A container (div, popup -- anything that sets its own el.content, see div's
-    // comment above) walks el.content's children; 'list' rebuilds its opt.datas shape from the
-    // table's own header row (column names) and body rows, rather than reading el._.opt.datas
-    // directly, since a list dropped from the palette never had opt.datas set in the first place
-    // (its layout falls back to its own default sample instead) -- the rendered table is the only
-    // place that default ends up recorded; 'textarea' reads its own .value (a real form control's
-    // live value, unlike a plain div/span/button, never shows up in .textContent); anything else
-    // (text/span/button) is read as its own textContent, kept current by attributes-panel's text
-    // field (see renderAttributeRows) rather than by editing on canvas -- see that field's
-    // comment for why. Reads all of these live rather than the original opt.data, since editing
-    // only ever changes the DOM/value, never that original opt.
+    // comment above) walks el.content's children; 'list' reads back the el.datas/el.columns the
+    // `list` layout already stashed on it (see that layout's own comment for why those, and not
+    // el._.opt.datas/columns or the rendered th/td text, are the source of truth here); 'textarea'
+    // reads its own .value (a real form control's live value, unlike a plain div/span/button,
+    // never shows up in .textContent); anything else (text/span/button) is read as its own
+    // textContent, kept current by attributes-panel's text field (see renderAttributeRows) rather
+    // than by editing on canvas -- see that field's comment for why. Reads all of these live
+    // rather than the original opt.data, since editing only ever changes the DOM/value, never
+    // that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -239,13 +249,7 @@
                 node.data = { title : el.querySelector('.__popup-title').textContent };
             }
         } else if (el._.name === 'list') {
-            var rows = Array.from(el.rows);
-            var columns = Array.from(rows[0].children).map(function(th) { return th.textContent; });
-            node.data = { datas : rows.slice(1).map(function(tr) {
-                var data = {};
-                Array.from(tr.children).forEach(function(td, i) { data[columns[i]] = td.textContent; });
-                return data;
-            }) };
+            node.data = { datas : el.datas, columns : el.columns };
         } else if (el._.name === 'textarea') {
             node.data = { text : el.value };
         } else {
@@ -608,23 +612,22 @@
     fn.component._.renderPreviewNode = function(node) {
         if (node.type === 'list') {
             var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
-            var columns = Object.keys(node.data.datas[0] || {});
             var headerRow = fn.element.create({ tagName : 'tr', parent : table });
-            columns.forEach(function(column) {
+            node.data.columns.forEach(function(column) {
                 fn.element.create({
                     tagName : 'th',
-                    text : column,
-                    style : { border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' },
+                    text : column.label || column.name,
+                    style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
                     parent : headerRow,
                 });
             });
             node.data.datas.forEach(function(data) {
                 var tr = fn.element.create({ tagName : 'tr', parent : table });
-                columns.forEach(function(column) {
+                node.data.columns.forEach(function(column) {
                     fn.element.create({
                         tagName : 'td',
-                        text : data[column],
-                        style : { border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' },
+                        text : data[column.name],
+                        style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
                         parent : tr,
                     });
                 });

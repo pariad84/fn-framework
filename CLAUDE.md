@@ -63,9 +63,18 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `textarea` -- a real `<textarea>`, edited via its own `.value`.
 - `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
   `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`
-  returns elsewhere in this codebase); column names come from the first row's
-  own keys. Cell content is fixed at drop time (no on-canvas or
-  attributes-panel editing -- see the `list` layout's own comment for why).
+  returns elsewhere in this codebase), and optionally `opt.columns`
+  (`[{ name, label, list, form }, ...]`): `name` indexes into each `datas`
+  row, `label` is the header text (falls back to `name`), `list` is extra
+  style merged onto that column's `th`/`td` (e.g. `{ width: '160px' }`), and
+  `form` rides along unused (no `form` component exists in this app yet, but
+  nothing about the shape assumes that stays true). Without `opt.columns`,
+  columns default to the first row's own keys. Cell content is fixed at drop
+  time (no on-canvas or attributes-panel editing -- see the `list` layout's
+  own comment for why); the resolved `datas`/`columns` are stashed directly
+  on the table element (`el.datas`/`el.columns`) rather than reconstructed
+  from the rendered header/cell text, since `label` and `name` can now
+  differ.
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new

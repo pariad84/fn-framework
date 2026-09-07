@@ -65,3 +65,11 @@ the directory, e.g. `npx serve .`) to use it.
   names read from the first row's own keys, matching the shape
   `fn.util.selectFlat` already returns everywhere else in this codebase --
   one row-shape convention instead of two.
+- Added `opt.columns` to `list`, separating a column's display label and
+  per-column style (`{ name, label, list, form }`) from its data key. Once
+  label could differ from name, the header text a saved screen's `list` node
+  used to be reconstructed from stopped being a reliable stand-in for the
+  data key -- fixed by having the `list` layout stash its resolved
+  `datas`/`columns` directly on the table element for `serializeComponent`
+  to read back, the same way `div`/`popup` already stash `.content`, instead
+  of scraping the rendered table.
