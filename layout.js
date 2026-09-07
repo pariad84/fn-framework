@@ -205,13 +205,89 @@
         },
     });
 
-    // Placeholder for now -- will hold the stylesheets that get matched onto builder components,
-    // once that matching itself is built.
+    // CRUD for a resource this app owns (name + a style object), same fn.data.select/insert/
+    // delete verbs every mini-framework example uses. Matching a saved stylesheet onto a
+    // builder component is a separate, not-yet-built feature this only lays the data for --
+    // for now this is its own standalone list, not yet wired to `attributes-panel`.
     fn.component.layout.set({
         name : 'stylesheets',
         layout : function(opt = {}) {
-            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px' } });
-            fn.element.create({ tagName : 'h1', text : 'Stylesheets', style : { fontSize : '20px' }, parent : el });
+            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px', overflowY : 'auto' } });
+            fn.element.create({ tagName : 'h1', text : 'Stylesheets', style : { fontSize : '20px', marginTop : '0' }, parent : el });
+
+            var form = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '8px', alignItems : 'flex-start', marginBottom : '16px' }, parent : el });
+
+            var nameInput = fn.element.create({
+                tagName : 'input',
+                attribute : { type : 'text', placeholder : 'Name' },
+                style : { flex : '0 0 160px', padding : '8px', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+                parent : form,
+            });
+
+            var styleInput = fn.element.create({
+                tagName : 'textarea',
+                attribute : { placeholder : '{ "color": "#fff", "padding": "8px" }' },
+                style : { flex : '1', minHeight : '60px', padding : '8px', font : '13px/1.4 monospace', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+                parent : form,
+            });
+
+            var list = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column' }, parent : el });
+
+            list.refresh = function() {
+                Array.from(list.children).forEach(function(child) { child.remove(); });
+                fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
+                    var item = fn.element.create({
+                        tagName : 'div',
+                        style : { display : 'flex', alignItems : 'center', gap : '12px', padding : '10px 12px', borderBottom : '1px solid #262a33' },
+                        parent : list,
+                    });
+                    fn.element.create({ tagName : 'div', text : row.name, style : { flex : '1' }, parent : item });
+                    fn.element.create({
+                        tagName : 'div',
+                        text : 'Aa',
+                        style : Object.assign({ padding : '4px 10px', border : '1px solid #3a3f4b', borderRadius : '4px' }, row.style),
+                        parent : item,
+                    });
+                    fn.element.create({
+                        tagName : 'button',
+                        attribute : { type : 'button' },
+                        text : 'Delete',
+                        event : { click : function() {
+                            fn.data.delete({ key : 'stylesheets', id : row.id });
+                            list.refresh();
+                        } },
+                        parent : item,
+                    });
+                });
+            };
+            list.refresh();
+
+            fn.element.create({
+                tagName : 'button',
+                attribute : { type : 'button' },
+                text : 'Add',
+                style : { padding : '8px 16px' },
+                event : {
+                    click : function() {
+                        if (!nameInput.value) {
+                            return;
+                        }
+                        var style;
+                        try {
+                            style = styleInput.value ? JSON.parse(styleInput.value) : {};
+                        } catch (e) {
+                            alert('Style must be valid JSON');
+                            return;
+                        }
+                        fn.data.insert({ key : 'stylesheets', data : { name : nameInput.value, style : style } });
+                        nameInput.value = '';
+                        styleInput.value = '';
+                        list.refresh();
+                    },
+                },
+                parent : form,
+            });
+
             return el;
         },
     });
