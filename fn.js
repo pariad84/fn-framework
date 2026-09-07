@@ -67,6 +67,9 @@
             throw new Error('Unknown component layout: ' + opt.name);
         }
         var el = layout(opt);
+        // Lets an app serialize a tree of components (e.g. to save/reload one) without having
+        // to guess which layout produced each element from its tag/attributes alone.
+        el._.name = opt.name;
         if (opt.parent) {
             opt.parent.appendChild(el);
         }

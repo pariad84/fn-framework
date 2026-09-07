@@ -76,6 +76,23 @@
         },
     });
 
+    // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
+    // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
+    // each element, since a saved node needs to know 'text' vs 'box' to be previewed or (later)
+    // reloaded. Reads text's live el.textContent rather than its original opt.data.text, since
+    // contenteditable typing only ever changes the DOM, never that original opt.
+    fn.component._.serializeComponent = function(el) {
+        var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
+        if (el._.name === 'text') {
+            node.data = { text : el.textContent };
+        } else {
+            node.children = Array.from(el.children)
+                .filter(function(child) { return child.classList.contains('__component'); })
+                .map(fn.component._.serializeComponent);
+        }
+        return node;
+    };
+
     // Referenced by canvas/attributes-panel below via .closest('.__builder'), the same
     // self-contained convention popup/close-btn/save-btn already use. Routed into shell's
     // content area rather than assuming the whole viewport, so it takes opt.components only as
@@ -87,12 +104,40 @@
             var builder = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__builder' },
-                style : { display : 'flex', flex : '1', minHeight : '0' },
+                style : { display : 'flex', flexDirection : 'column', flex : '1', minHeight : '0' },
             });
 
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box' ], parent : builder });
-            fn.component.create({ name : 'canvas', parent : builder });
-            fn.component.create({ name : 'attributes-panel', parent : builder });
+            var toolbar = fn.element.create({
+                tagName : 'div',
+                style : { display : 'flex', justifyContent : 'flex-end', padding : '8px 12px', borderBottom : '1px solid #3a3f4b', flexShrink : '0' },
+                parent : builder,
+            });
+            fn.element.create({
+                tagName : 'button',
+                attribute : { type : 'button' },
+                text : 'Save Screen',
+                style : { padding : '6px 14px' },
+                event : {
+                    click : function(e) {
+                        var name = prompt('Screen name?');
+                        if (!name) {
+                            return;
+                        }
+                        var canvas = e.target.closest('.__builder').querySelector('.__canvas');
+                        var tree = Array.from(canvas.children)
+                            .filter(function(child) { return child.classList.contains('__component'); })
+                            .map(fn.component._.serializeComponent);
+                        fn.data.insert({ key : 'screens', data : { name : name, tree : tree } });
+                        alert('Saved.');
+                    },
+                },
+                parent : toolbar,
+            });
+
+            var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box' ], parent : body });
+            fn.component.create({ name : 'canvas', parent : body });
+            fn.component.create({ name : 'attributes-panel', parent : body });
 
             return builder;
         },
@@ -315,13 +360,74 @@
         },
     });
 
-    // Placeholder for now -- will list the screens saved from the builder tab, once saving a
-    // screen is built.
+    // Read-only rendering of one saved node -- deliberately plain elements rather than
+    // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
+    // box/canvas's own drop handling or text's contenteditable.
+    fn.component._.renderPreviewNode = function(node) {
+        var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
+        if (node.type === 'text') {
+            el.textContent = node.data.text;
+        } else {
+            (node.children || []).forEach(function(child) {
+                el.appendChild(fn.component._.renderPreviewNode(child));
+            });
+        }
+        return el;
+    };
+
+    // Same list.refresh() shape as `stylesheets` above. What a saved screen actually is (the
+    // trees `builder`'s Save Screen button writes via fn.component._.serializeComponent) is
+    // this tab's own concern to read back, not fn.data's.
     fn.component.layout.set({
         name : 'screens',
         layout : function(opt = {}) {
-            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px' } });
-            fn.element.create({ tagName : 'h1', text : 'Screens', style : { fontSize : '20px' }, parent : el });
+            var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px', overflowY : 'auto' } });
+            fn.element.create({ tagName : 'h1', text : 'Screens', style : { fontSize : '20px', marginTop : '0' }, parent : el });
+
+            var list = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '12px' }, parent : el });
+
+            list.refresh = function() {
+                Array.from(list.children).forEach(function(child) { child.remove(); });
+                var rows = fn.util.selectFlat({ key : 'screens' });
+                if (!rows.length) {
+                    fn.element.create({ tagName : 'div', text : 'No screens saved yet.', style : { color : '#9aa0a6' }, parent : list });
+                    return;
+                }
+                rows.forEach(function(row) {
+                    var item = fn.element.create({
+                        tagName : 'div',
+                        style : { border : '1px solid #3a3f4b', borderRadius : '6px', padding : '12px' },
+                        parent : list,
+                    });
+                    var header = fn.element.create({
+                        tagName : 'div',
+                        style : { display : 'flex', justifyContent : 'space-between', alignItems : 'center', marginBottom : '8px' },
+                        parent : item,
+                    });
+                    fn.element.create({ tagName : 'div', text : row.name, style : { fontWeight : '600' }, parent : header });
+                    fn.element.create({
+                        tagName : 'button',
+                        attribute : { type : 'button' },
+                        text : 'Delete',
+                        event : { click : function() {
+                            fn.data.delete({ key : 'screens', id : row.id });
+                            list.refresh();
+                        } },
+                        parent : header,
+                    });
+
+                    var preview = fn.element.create({
+                        tagName : 'div',
+                        style : { display : 'flex', flexDirection : 'column', gap : '4px', border : '1px dashed #3a3f4b', padding : '8px', pointerEvents : 'none' },
+                        parent : item,
+                    });
+                    row.tree.forEach(function(node) {
+                        preview.appendChild(fn.component._.renderPreviewNode(node));
+                    });
+                });
+            };
+            list.refresh();
+
             return el;
         },
     });
