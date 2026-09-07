@@ -76,19 +76,33 @@
         },
     });
 
+    fn.component.layout.set({
+        name : 'button',
+        layout : function(opt) {
+            return fn.element.create({
+                tagName : 'button',
+                attribute : { type : 'button', contenteditable : 'true', class : '__component' },
+                text : (opt.data && opt.data.text) || 'Button',
+                style : { padding : '8px 16px' },
+                parent : opt.parent,
+            });
+        },
+    });
+
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
-    // each element, since a saved node needs to know 'text' vs 'box' to be previewed or (later)
-    // reloaded. Reads text's live el.textContent rather than its original opt.data.text, since
+    // each element, since a saved node needs to know 'box' (a container) from 'text'/'button'
+    // (their own contenteditable text) to be previewed or (later) reloaded. Reads live
+    // el.textContent for text/button rather than their original opt.data.text, since
     // contenteditable typing only ever changes the DOM, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
-        if (el._.name === 'text') {
-            node.data = { text : el.textContent };
-        } else {
+        if (el._.name === 'box') {
             node.children = Array.from(el.children)
                 .filter(function(child) { return child.classList.contains('__component'); })
                 .map(fn.component._.serializeComponent);
+        } else {
+            node.data = { text : el.textContent };
         }
         return node;
     };
@@ -135,7 +149,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
@@ -362,15 +376,15 @@
 
     // Read-only rendering of one saved node -- deliberately plain elements rather than
     // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // box/canvas's own drop handling or text's contenteditable.
+    // box/canvas's own drop handling or text/button's contenteditable.
     fn.component._.renderPreviewNode = function(node) {
         var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
-        if (node.type === 'text') {
-            el.textContent = node.data.text;
-        } else {
+        if (node.type === 'box') {
             (node.children || []).forEach(function(child) {
                 el.appendChild(fn.component._.renderPreviewNode(child));
             });
+        } else {
+            el.textContent = node.data.text;
         }
         return el;
     };
