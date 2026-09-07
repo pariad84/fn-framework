@@ -44,11 +44,13 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   `span`/`button`/`popup`) is edited via a text field in the attributes panel,
   not on canvas -- see "Components" below for why.
 - **Stylesheets**: CRUD (name + a style object) stored under `fn.data`'s
-  `'stylesheets'` key. The row list itself is rendered through this app's own
-  `list` component (`column.render` supplies the swatch preview and Delete
-  button -- see "Components" below), the same building block Builder drops
-  onto the canvas. `attributes-panel`'s own style-select reads this same key
-  to apply one onto a selected Builder component.
+  `'stylesheets'` key. Both halves are this app's own canvas components,
+  reused rather than hand-rolled: the "add a stylesheet" row is `form` with
+  `opt.editable: true` (a real typable form, not `form`'s usual canvas
+  mockup), and the row list itself is `list` (`column.render` supplies the
+  swatch preview and Delete button) -- see "Components" below for both.
+  `attributes-panel`'s own style-select reads this same key to apply one onto
+  a selected Builder component.
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
   preview render and Delete. Hand-rolled rather than `list` -- each row's
   preview is a full nested render (`renderPreviewNode`'s output), not a flat
@@ -89,13 +91,25 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `form` -- `list`'s single-record counterpart: same `opt.columns` shape,
   but `opt.data` is one plain object (not an array) and each field reads
   `column.form` instead of `column.list` (a row-per-object array's per-cell
-  style has no meaning laid out top-to-bottom). Renders a real `<input>` per
-  column (`attribute.type` from `column.form`, defaulting to `'text'`) for
-  visual fidelity, but `readonly` and `pointer-events: none` -- an `<input>`
-  is natively focusable/selectable the same way `contenteditable` was (see
+  style has no meaning laid out top-to-bottom). `column.form.tagName`
+  overrides the field's own element (defaults to `<input>`, `attribute.type`
+  from `column.form` defaulting to `'text'`; `'textarea'` gets a multi-line
+  field instead, its value read/written as text content rather than a
+  `value` attribute -- see Stylesheets' own "Style (JSON)" field). Readonly
+  and `pointer-events: none` by default -- an `<input>`/`<textarea>` is
+  natively focusable/selectable the same way `contenteditable` was (see
   below), so without that it would reopen the exact drag-vs-select conflict
-  removing `contenteditable` was fixing. `el.data`/`el.columns` are stashed
-  on the element the same way `list` stashes `el.datas`/`el.columns`.
+  removing `contenteditable` was fixing. Pass `opt.editable: true` to opt out
+  of both and get a real, typable form instead -- Stylesheets' own "add a
+  stylesheet" row does this; a canvas-dropped form never should, so that
+  stays the default. An editable form's typed values live only in its own
+  DOM (each field carries `attribute.name = column.name`; read them back via
+  `formEl.querySelector('[name="..."]').value`, the way Stylesheets' own Add
+  handler does) -- `el.data` stays whatever `opt.data` was at creation, so
+  `serializeComponent` would save stale data for a form saved mid-edit; out
+  of scope today since nothing drags an editable form onto the canvas.
+  `el.data`/`el.columns` are stashed on the element the same way `list`
+  stashes `el.datas`/`el.columns`.
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new

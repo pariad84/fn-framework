@@ -100,3 +100,14 @@ the directory, e.g. `npx serve .`) to use it.
   now-shared `fn.component._.columnLabel` to check for `undefined`
   specifically, so both callers (and their `renderPreviewNode` counterparts)
   respect an explicit empty label the same way.
+- Stylesheets' own "add a stylesheet" row hand-rolled a name `<input>` and a
+  style `<textarea>` before `form` existed. Once `form` did, `readonly` +
+  `pointer-events: none` (needed so a canvas-dropped form's fields don't
+  reopen the drag-vs-select conflict) made it unusable as a real input --
+  added `opt.editable: true` to opt out of both for exactly this case, and
+  `column.form.tagName` so a field can be a `<textarea>` instead of the
+  default `<input>` (Stylesheets' own JSON field needs the multi-line entry
+  a single-line input can't give it). A canvas-dropped form never passes
+  `opt.editable`, so it keeps the safe (readonly) default; an editable
+  form's typed values are read back from its own DOM by each field's
+  `name` attribute, the same way any other real form control would be.

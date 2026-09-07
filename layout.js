@@ -249,13 +249,20 @@
     // A single-record counterpart to `list`, sharing its opt.columns shape ({ name, label, list,
     // form }) but reading column.form instead of column.list (list's per-cell style has no
     // meaning for a field laid out top-to-bottom) and opt.data -- one plain object, since a form
-    // shows one record rather than a row-per-object array. Each field is a real <input>
-    // (attribute.type from column.form, defaulting to 'text') for visual fidelity with an actual
-    // form, but readonly and pointer-events:none: unlike list's plain-text td/th, an <input> is
-    // natively focusable/selectable, which is exactly the contenteditable-vs-draggable conflict
-    // documented above for text/span/button -- pointer-events:none routes every mousedown past
-    // the field straight to the form's own draggable root instead of letting the browser treat
-    // it as a text-selection drag.
+    // shows one record rather than a row-per-object array. Each field defaults to a real <input>
+    // (attribute.type from column.form, defaulting to 'text'; column.form.tagName overrides the
+    // element itself, e.g. 'textarea' for a multi-line field -- see Stylesheets' own form below)
+    // for visual fidelity with an actual form. Readonly and pointer-events:none by default: unlike
+    // list's plain-text td/th, an <input>/<textarea> is natively focusable/selectable, which is
+    // exactly the contenteditable-vs-draggable conflict documented above for text/span/button --
+    // pointer-events:none routes every mousedown past the field straight to the form's own
+    // draggable root instead of letting the browser treat it as a text-selection drag. Pass
+    // opt.editable: true to opt out of both and get a real, typable form instead (Stylesheets'
+    // own "Add" row uses this; a canvas-dropped form never does, so this default stays the safe
+    // one). An editable form's typed values live only in its own DOM (read them back the same way
+    // Stylesheets' Add handler does, by column.name); el.data stays whatever opt.data was at
+    // creation, so serializeComponent below would save stale data for a form saved mid-edit --
+    // out of scope today since nothing drags an editable form onto the canvas.
     fn.component.layout.set({
         name : 'form',
         layout : function(opt) {
@@ -271,10 +278,19 @@
             columns.forEach(function(column) {
                 var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
                 fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                var fieldForm = Object.assign({}, column.form);
+                var tagName = fieldForm.tagName || 'input';
+                delete fieldForm.tagName;
                 fn.element.create({
-                    tagName : 'input',
-                    attribute : Object.assign({ type : 'text', value : data[column.name] || '', readonly : 'true' }, column.form),
-                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                    tagName : tagName,
+                    attribute : Object.assign(
+                        tagName === 'input' ? { type : 'text', value : data[column.name] || '' } : {},
+                        { name : column.name },
+                        opt.editable ? {} : { readonly : 'true' },
+                        fieldForm
+                    ),
+                    text : tagName === 'textarea' ? (data[column.name] || '') : undefined,
+                    style : Object.assign({ padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', font : 'inherit' }, opt.editable ? {} : { pointerEvents : 'none' }),
                     parent : field,
                 });
             });
@@ -590,21 +606,26 @@
             var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px', overflowY : 'auto' } });
             fn.element.create({ tagName : 'h1', text : 'Stylesheets', style : { fontSize : '20px', marginTop : '0' }, parent : el });
 
-            var form = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '8px', alignItems : 'flex-start', marginBottom : '16px' }, parent : el });
-
-            var nameInput = fn.element.create({
-                tagName : 'input',
-                attribute : { type : 'text', placeholder : 'Name' },
-                style : { flex : '0 0 160px', padding : '8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
-                parent : form,
+            // The "add a stylesheet" row, built on this app's own `form` component -- editable:
+            // true, so it's a real typable form rather than `form`'s usual canvas-mockup
+            // readonly/pointer-events:none. style's column.form.tagName is 'textarea' so JSON
+            // entry keeps its own multi-line field instead of squeezing into a single-line input.
+            var addForm = fn.component.create({
+                name : 'form',
+                editable : true,
+                data : {},
+                columns : [
+                    { name : 'name', label : 'Name', form : { placeholder : 'Name' } },
+                    { name : 'style', label : 'Style (JSON)', form : { tagName : 'textarea', placeholder : '{ "color": "#fff", "padding": "8px" }' } },
+                ],
+                parent : el,
             });
-
-            var styleInput = fn.element.create({
-                tagName : 'textarea',
-                attribute : { placeholder : '{ "color": "#fff", "padding": "8px" }' },
-                style : { flex : '1', minHeight : '60px', padding : '8px', font : '13px/1.4 monospace', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
-                parent : form,
-            });
+            // No layout in this file merges a passed opt.style into its own element's style (each
+            // component's look is a fixed object in its own layout function), so spacing/sizing
+            // on top of a component's own style is set directly on the returned element instead,
+            // the same way selectComponent below sets selected.style.outline directly.
+            addForm.style.marginBottom = '16px';
+            addForm.style.maxWidth = '360px';
 
             var listArea = fn.element.create({ tagName : 'div', parent : el });
 
@@ -655,26 +676,31 @@
                 tagName : 'button',
                 attribute : { type : 'button' },
                 text : 'Add',
-                style : { padding : '8px 16px' },
+                style : { padding : '8px 16px', marginBottom : '16px' },
                 event : {
                     click : function() {
-                        if (!nameInput.value) {
+                        // addForm's fields carry a name attribute (== column.name) for exactly
+                        // this -- read the live typed value back out the same way any other
+                        // editable form field in the DOM would be read.
+                        var nameField = addForm.querySelector('[name="name"]');
+                        var styleField = addForm.querySelector('[name="style"]');
+                        if (!nameField.value) {
                             return;
                         }
                         var style;
                         try {
-                            style = styleInput.value ? JSON.parse(styleInput.value) : {};
+                            style = styleField.value ? JSON.parse(styleField.value) : {};
                         } catch (e) {
                             alert('Style must be valid JSON');
                             return;
                         }
-                        fn.data.insert({ key : 'stylesheets', data : { name : nameInput.value, style : style } });
-                        nameInput.value = '';
-                        styleInput.value = '';
+                        fn.data.insert({ key : 'stylesheets', data : { name : nameField.value, style : style } });
+                        nameField.value = '';
+                        styleField.value = '';
                         listArea.refresh();
                     },
                 },
-                parent : form,
+                parent : el,
             });
 
             return el;
@@ -715,10 +741,18 @@
             node.data.columns.forEach(function(column) {
                 var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
                 fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                var fieldForm = Object.assign({}, column.form);
+                var tagName = fieldForm.tagName || 'input';
+                delete fieldForm.tagName;
                 fn.element.create({
-                    tagName : 'input',
-                    attribute : Object.assign({ type : 'text', value : node.data.data[column.name] || '', readonly : 'true' }, column.form),
-                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                    tagName : tagName,
+                    attribute : Object.assign(
+                        tagName === 'input' ? { type : 'text', value : node.data.data[column.name] || '' } : {},
+                        { readonly : 'true' },
+                        fieldForm
+                    ),
+                    text : tagName === 'textarea' ? (node.data.data[column.name] || '') : undefined,
+                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', font : 'inherit', pointerEvents : 'none' },
                     parent : field,
                 });
             });
