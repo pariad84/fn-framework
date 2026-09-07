@@ -291,6 +291,63 @@
         },
     });
 
+    // Shared by canvas's click (select/deselect) and contextmenu (right-click also selects,
+    // before the menu opens on it) handlers below, so the outline/attributes-panel bookkeeping
+    // lives in exactly one place.
+    fn.component._.selectComponent = function(canvasEl, selected) {
+        if (canvasEl._.selected) {
+            canvasEl._.selected.style.outline = '';
+        }
+        canvasEl._.selected = selected || null;
+        if (selected) {
+            selected.style.outline = '2px solid #2563eb';
+        }
+        canvasEl.closest('.__builder').querySelector('.__attributes-panel').refresh(selected || null);
+    };
+
+    // A minimal right-click menu: Delete only, for now. Positioned at the cursor via
+    // position:fixed on body (not inside canvas) so it isn't clipped by canvas's own
+    // overflow:auto. Closes itself on the next click anywhere, the same "click outside to
+    // dismiss" convention as a native context menu.
+    fn.component._.showContextMenu = function(opt) {
+        var existing = document.querySelector('.__context-menu');
+        if (existing) {
+            existing.remove();
+        }
+
+        var menu = fn.element.create({
+            tagName : 'div',
+            attribute : { class : '__context-menu' },
+            style : {
+                position : 'fixed', left : opt.x + 'px', top : opt.y + 'px', minWidth : '120px',
+                background : '#ffffff', border : '1px solid #d9dce1', borderRadius : '6px',
+                boxShadow : '0 4px 12px rgba(0, 0, 0, 0.12)', padding : '4px', zIndex : '1000',
+            },
+            parent : document.body,
+        });
+
+        fn.element.create({
+            tagName : 'div',
+            text : 'Delete',
+            style : { padding : '6px 14px', borderRadius : '4px', color : '#dc2626', cursor : 'pointer' },
+            event : {
+                click : function() {
+                    if (opt.canvas._.selected === opt.target) {
+                        fn.component._.selectComponent(opt.canvas, null);
+                    }
+                    opt.target.remove();
+                    menu.remove();
+                },
+            },
+            parent : menu,
+        });
+
+        document.addEventListener('click', function closeOnce() {
+            menu.remove();
+            document.removeEventListener('click', closeOnce);
+        }, { once : true });
+    };
+
     fn.component.layout.set({
         name : 'canvas',
         layout : function(opt = {}) {
@@ -305,16 +362,16 @@
                     // the innermost component under the click, since e.target is already that
                     // deepest element (or one of its own children, for text's own contents).
                     click : function(e) {
-                        var canvasEl = e.currentTarget;
-                        var selected = e.target.closest('.__component');
-                        if (canvasEl._.selected) {
-                            canvasEl._.selected.style.outline = '';
+                        fn.component._.selectComponent(e.currentTarget, e.target.closest('.__component'));
+                    },
+                    contextmenu : function(e) {
+                        var target = e.target.closest('.__component');
+                        if (!target) {
+                            return;
                         }
-                        canvasEl._.selected = selected || null;
-                        if (selected) {
-                            selected.style.outline = '2px solid #2563eb';
-                        }
-                        canvasEl.closest('.__builder').querySelector('.__attributes-panel').refresh(selected || null);
+                        e.preventDefault();
+                        fn.component._.selectComponent(e.currentTarget, target);
+                        fn.component._.showContextMenu({ x : e.clientX, y : e.clientY, target : target, canvas : e.currentTarget });
                     },
                 },
             });
