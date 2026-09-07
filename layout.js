@@ -13,4 +13,15 @@
             });
         },
     });
+
+    fn.component.layout.set({
+        name : 'box',
+        layout : function(opt) {
+            return fn.element.create({
+                tagName : 'div',
+                style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #3a3f4b' },
+                parent : opt.parent,
+            });
+        },
+    });
 })();
