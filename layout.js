@@ -49,6 +49,28 @@
         },
     });
 
+    // Keeps every instance of a component in sync with its own type's stylesheet (e.g. every
+    // `text` component always looks like the 'text' row under fn.data's 'stylesheets' key,
+    // seeded one-per-type by app.js) -- replaces having a user pick a stylesheet by hand per
+    // component and remember which one they picked, since there's nothing left to choose: eight
+    // component types is a small, fixed, real set the Stylesheets tab already covers one-to-one.
+    // typeName is passed explicitly rather than read from el._.name, since fn.component.create
+    // (fn.js) only stamps el._.name *after* a layout function returns -- each of the eight
+    // layouts below already knows its own name statically, being the one place registered under
+    // it. Called once at creation (below, in each component's own layout) and again on selection
+    // (selectComponent below), so a stylesheet edited after a component was dropped is picked up
+    // the next time that component is looked at, not just baked in once and forgotten.
+    fn.component._.applyTypeStylesheet = function(el, typeName) {
+        var stylesheet = fn.util.selectFlat({ key : 'stylesheets' }).find(function(row) { return row.name === typeName; });
+        if (!stylesheet) {
+            return;
+        }
+        el._.opt.style = Object.assign({}, el._.opt.style, stylesheet.style);
+        Object.keys(stylesheet.style).forEach(function(key) {
+            el.style[key] = stylesheet.style[key];
+        });
+    };
+
     fn.component.layout.set({
         name : 'text',
         layout : function(opt) {
@@ -59,6 +81,7 @@
                 style : { padding : '4px', minWidth : '20px', outline : 'none' },
                 parent : opt.parent,
             });
+            fn.component._.applyTypeStylesheet(text, 'text');
             fn.util.enableDrag({ el : text });
             return text;
         },
@@ -74,6 +97,7 @@
                 style : { padding : '4px', minWidth : '20px', display : 'inline-block', outline : 'none' },
                 parent : opt.parent,
             });
+            fn.component._.applyTypeStylesheet(span, 'span');
             fn.util.enableDrag({ el : span });
             return span;
         },
@@ -92,6 +116,7 @@
             // itself; popup (below) sets it to an inner div instead, since its header isn't a
             // drop target. serializeComponent reads any el.content as "this is a container".
             div.content = div;
+            fn.component._.applyTypeStylesheet(div, 'div');
             fn.util.enableDrop({ el : div.content, dropOutline : '3px dashed #2563eb' });
             fn.util.enableDrag({ el : div });
             return div;
@@ -132,6 +157,7 @@
                 style : { minHeight : '60px', margin : '10px', padding : '10px', border : '1px dashed #d9dce1' },
                 parent : popup,
             });
+            fn.component._.applyTypeStylesheet(popup, 'popup');
             fn.util.enableDrop({ el : popup.content, dropOutline : '3px dashed #2563eb' });
             fn.util.enableDrag({ el : popup });
 
@@ -149,6 +175,7 @@
                 style : { padding : '8px 16px' },
                 parent : opt.parent,
             });
+            fn.component._.applyTypeStylesheet(button, 'button');
             fn.util.enableDrag({ el : button });
             return button;
         },
@@ -166,6 +193,7 @@
                 style : { padding : '8px', minHeight : '60px', font : 'inherit' },
                 parent : opt.parent,
             });
+            fn.component._.applyTypeStylesheet(textarea, 'textarea');
             fn.util.enableDrag({ el : textarea });
             return textarea;
         },
@@ -196,6 +224,10 @@
     // a function, so it never survives fn.data's JSON storage -- fine for a list built fresh from
     // live app code on every render (like Stylesheets'), but never use it on a list meant to be
     // dropped onto the canvas and saved as a screen; that path only ever needs plain data.
+    // opt.skipStylesheet skips fn.component._.applyTypeStylesheet below -- the Stylesheets tab
+    // itself renders its own row list through this exact layout (see `stylesheets` below), and
+    // without the flag that instance would pick up whatever the user sets the 'list' stylesheet
+    // to, visibly distorting the Stylesheets tab's own chrome instead of just a canvas mockup.
     fn.component.layout.set({
         name : 'list',
         layout : function(opt) {
@@ -241,6 +273,9 @@
             // now differ, so header text alone is no longer enough to recover the original shape.
             table.datas = datas;
             table.columns = columns;
+            if (!opt.skipStylesheet) {
+                fn.component._.applyTypeStylesheet(table, 'list');
+            }
             fn.util.enableDrag({ el : table });
             return table;
         },
@@ -257,12 +292,15 @@
     // exactly the contenteditable-vs-draggable conflict documented above for text/span/button --
     // pointer-events:none routes every mousedown past the field straight to the form's own
     // draggable root instead of letting the browser treat it as a text-selection drag. Pass
-    // opt.editable: true to opt out of both and get a real, typable form instead (Stylesheets'
-    // own "Add" row uses this; a canvas-dropped form never does, so this default stays the safe
-    // one). An editable form's typed values live only in its own DOM (read them back the same way
-    // Stylesheets' Add handler does, by column.name); el.data stays whatever opt.data was at
-    // creation, so serializeComponent below would save stale data for a form saved mid-edit --
-    // out of scope today since nothing drags an editable form onto the canvas.
+    // opt.editable: true to opt out of both and get a real, typable form instead; a
+    // canvas-dropped form never does, so this default stays the safe one -- no current caller in
+    // this app uses opt.editable (Stylesheets' own "add a stylesheet" row, its one past use, was
+    // removed once every component got a fixed one-per-type stylesheet instead), but it's kept
+    // as a real, tested capability rather than ripped out along with that one caller. An editable
+    // form's typed values would live only in its own DOM (read via
+    // formEl.querySelector('[name="..."]').value by column.name); el.data stays whatever
+    // opt.data was at creation, so serializeComponent below would save stale data for a form
+    // saved mid-edit -- out of scope since nothing drags an editable form onto the canvas.
     fn.component.layout.set({
         name : 'form',
         layout : function(opt) {
@@ -296,6 +334,7 @@
             });
             form.data = data;
             form.columns = columns;
+            fn.component._.applyTypeStylesheet(form, 'form');
             fn.util.enableDrag({ el : form });
             return form;
         },
@@ -423,13 +462,17 @@
 
     // Shared by canvas's click (select/deselect) and contextmenu (right-click also selects,
     // before the menu opens on it) handlers below, so the outline/attributes-panel bookkeeping
-    // lives in exactly one place.
+    // lives in exactly one place. Also where a selected component picks up its type's latest
+    // stylesheet (see applyTypeStylesheet above) -- selecting is the moment a user is actually
+    // looking at a specific component, so it's the natural point to resync it, without needing
+    // to push updates out to every instance on canvas the moment a stylesheet is edited.
     fn.component._.selectComponent = function(canvasEl, selected) {
         if (canvasEl._.selected) {
             canvasEl._.selected.style.outline = '';
         }
         canvasEl._.selected = selected || null;
         if (selected) {
+            fn.component._.applyTypeStylesheet(selected, selected._.name);
             selected.style.outline = '2px solid #2563eb';
         }
         canvasEl.closest('.__builder').querySelector('.__attributes-panel').refresh(selected || null);
@@ -546,36 +589,9 @@
             });
         }
 
-        var styleSelect = fn.element.create({
-            tagName : 'select',
-            style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
-            parent : wrap,
-        });
-        fn.element.create({ tagName : 'option', attribute : { value : '' }, text : 'Apply a stylesheet...', parent : styleSelect });
-        fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
-            fn.element.create({ tagName : 'option', attribute : { value : row.id }, text : row.name, parent : styleSelect });
-        });
-        // Reflects whichever stylesheet is currently linked to el (el._.opt.styleId, set below)
-        // so reselecting the same component later shows what's applied instead of always
-        // resetting to "Apply a stylesheet..." with no way to tell. A styleId with no matching
-        // option (its stylesheet was deleted since) just leaves the select on its blank default.
-        styleSelect.value = el._.opt.styleId != null ? String(el._.opt.styleId) : '';
-        styleSelect.addEventListener('change', function(e) {
-            if (!e.target.value) {
-                return;
-            }
-            var stylesheet = fn.data.select({ key : 'stylesheets', id : Number(e.target.value) });
-            if (!stylesheet) {
-                return;
-            }
-            el._.opt.style = Object.assign({}, el._.opt.style, stylesheet.data.style);
-            el._.opt.styleId = stylesheet.id;
-            for (const [key, value] of Object.entries(stylesheet.data.style)) {
-                el.style[key] = value;
-            }
-            e.target.closest('.__attributes-panel').refresh(el);
-        });
-
+        // No style picker here any more -- selectComponent above already resynced el.style to
+        // its type's current stylesheet before this ran, so these rows (opt.style, merged with
+        // that stylesheet) already show the applied result rather than a choice still to make.
         var opt = el._.opt || {};
         var attribute = Object.assign({}, opt.attribute);
         delete attribute.class;
@@ -613,115 +629,80 @@
         },
     });
 
-    // CRUD for a resource this app owns (name + a style object), same fn.data.select/insert/
-    // delete verbs every mini-framework example uses. `attributes-panel`'s own style-select
-    // reads this same 'stylesheets' key to apply one onto a selected builder component. app.js
-    // seeds one sample stylesheet per registered component before mounting `shell`, the same
-    // fn.data.select(...).length === 0 guard every mini-framework example's app.js already
-    // seeds its own sample data with -- so this tab, and the dropdown above, already have
-    // something to show on a fresh install instead of starting empty.
+    // CRUD for a resource this app owns -- but only the U: exactly one row per registered
+    // component, seeded once by app.js and never added to or removed from here. A row's name
+    // must stay exactly its component type's name for fn.component._.applyTypeStylesheet above
+    // to keep matching it, so name is shown read-only; only style is editable, via a Save button
+    // per row. (This replaced an earlier design where a user picked a stylesheet by hand per
+    // canvas component from a dropdown, and had to remember which one they'd picked -- see
+    // README's design history for why: once every component already has exactly one stylesheet
+    // of its own, per-component picking has nothing left to decide.)
     fn.component.layout.set({
         name : 'stylesheets',
         layout : function(opt = {}) {
             var el = fn.element.create({ tagName : 'div', style : { flex : '1', padding : '16px', overflowY : 'auto' } });
             fn.element.create({ tagName : 'h1', text : 'Stylesheets', style : { fontSize : '20px', marginTop : '0' }, parent : el });
-
-            // The "add a stylesheet" row, built on this app's own `form` component -- editable:
-            // true, so it's a real typable form rather than `form`'s usual canvas-mockup
-            // readonly/pointer-events:none. style's column.form.tagName is 'textarea' so JSON
-            // entry keeps its own multi-line field instead of squeezing into a single-line input.
-            var addForm = fn.component.create({
-                name : 'form',
-                editable : true,
-                data : {},
-                columns : [
-                    { name : 'name', label : 'Name', form : { placeholder : 'Name' } },
-                    { name : 'style', label : 'Style (JSON)', form : { tagName : 'textarea', placeholder : '{ "color": "#fff", "padding": "8px" }' } },
-                ],
+            fn.element.create({
+                tagName : 'div',
+                text : 'One per Builder component. Edit a style below and Save -- every instance of that component picks it up the next time it is dropped or selected.',
+                style : { color : '#6b7280', marginBottom : '16px' },
                 parent : el,
             });
-            // No layout in this file merges a passed opt.style into its own element's style (each
-            // component's look is a fixed object in its own layout function), so spacing/sizing
-            // on top of a component's own style is set directly on the returned element instead,
-            // the same way selectComponent below sets selected.style.outline directly.
-            addForm.style.marginBottom = '16px';
-            addForm.style.maxWidth = '360px';
 
             var listArea = fn.element.create({ tagName : 'div', parent : el });
 
             // Renders the current stylesheets through this app's own `list` component --
-            // column.render supplies the one bit list can't do generically (a live style-preview
-            // swatch, and a Delete button) -- rather than hand-rolling near-identical row markup
-            // a second time. Empty state is handled here rather than by list itself: list's
-            // own no-datas fallback shows a placeholder sample (right for a freshly-dropped
-            // canvas component), which would be actively wrong here -- a real "no stylesheets
-            // yet" state should show nothing, not fake rows.
+            // column.render supplies the live style-preview swatch and the editable Style field
+            // + Save button, the two bits a flat column model can't already express. skipStylesheet
+            // keeps this particular list instance from picking up the 'list' stylesheet itself
+            // (see the `list` layout's own comment for why).
             listArea.refresh = function() {
                 Array.from(listArea.children).forEach(function(child) { child.remove(); });
-                var rows = fn.util.selectFlat({ key : 'stylesheets' });
-                if (!rows.length) {
-                    fn.element.create({ tagName : 'div', text : 'No stylesheets yet.', style : { color : '#6b7280' }, parent : listArea });
-                    return;
-                }
                 fn.component.create({
                     name : 'list',
-                    datas : rows,
+                    skipStylesheet : true,
+                    datas : fn.util.selectFlat({ key : 'stylesheets' }),
                     columns : [
                         { name : 'name', label : 'Name' },
-                        { name : 'style', label : 'Preview', render : function(data) {
+                        { name : 'preview', label : 'Preview', render : function(data) {
                             return fn.element.create({
                                 tagName : 'div',
                                 text : 'Aa',
                                 style : Object.assign({ padding : '4px 10px', border : '1px solid #d9dce1', borderRadius : '4px' }, data.style),
                             });
                         } },
-                        { name : 'id', label : '', render : function(data) {
-                            return fn.element.create({
+                        { name : 'styleJson', label : 'Style (JSON)', render : function(data) {
+                            var wrap = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '6px', alignItems : 'flex-start' } });
+                            var textarea = fn.element.create({
+                                tagName : 'textarea',
+                                text : JSON.stringify(data.style),
+                                style : { width : '220px', minHeight : '50px', padding : '4px 6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', font : 'inherit' },
+                                parent : wrap,
+                            });
+                            fn.element.create({
                                 tagName : 'button',
                                 attribute : { type : 'button' },
-                                text : 'Delete',
+                                text : 'Save',
                                 event : { click : function() {
-                                    fn.data.delete({ key : 'stylesheets', id : data.id });
+                                    var style;
+                                    try {
+                                        style = JSON.parse(textarea.value);
+                                    } catch (e) {
+                                        alert('Style must be valid JSON');
+                                        return;
+                                    }
+                                    fn.data.update({ key : 'stylesheets', id : data.id, data : { name : data.name, style : style } });
                                     listArea.refresh();
                                 } },
+                                parent : wrap,
                             });
+                            return wrap;
                         } },
                     ],
                     parent : listArea,
                 });
             };
             listArea.refresh();
-
-            fn.element.create({
-                tagName : 'button',
-                attribute : { type : 'button' },
-                text : 'Add',
-                style : { padding : '8px 16px', marginBottom : '16px' },
-                event : {
-                    click : function() {
-                        // addForm's fields carry a name attribute (== column.name) for exactly
-                        // this -- read the live typed value back out the same way any other
-                        // editable form field in the DOM would be read.
-                        var nameField = addForm.querySelector('[name="name"]');
-                        var styleField = addForm.querySelector('[name="style"]');
-                        if (!nameField.value) {
-                            return;
-                        }
-                        var style;
-                        try {
-                            style = styleField.value ? JSON.parse(styleField.value) : {};
-                        } catch (e) {
-                            alert('Style must be valid JSON');
-                            return;
-                        }
-                        fn.data.insert({ key : 'stylesheets', data : { name : nameField.value, style : style } });
-                        nameField.value = '';
-                        styleField.value = '';
-                        listArea.refresh();
-                    },
-                },
-                parent : el,
-            });
 
             return el;
         },

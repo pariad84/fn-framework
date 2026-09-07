@@ -12,17 +12,18 @@ the directory, e.g. `npx serve .`) to use it.
   `textarea`, `list`, `form`) from the left palette onto the canvas. Whatever
   you're currently dragging over -- the canvas, a `div`, or a `popup`'s
   content area -- highlights with a dashed blue outline, so it's always
-  clear where a drop will land. Click one to see
-  and edit its attributes on the right -- including its text label, for
-  components that have one -- and to apply a saved stylesheet from a
-  dropdown. Right-click one for a Delete option. Nest components inside a
-  `div` or a `popup`'s content area freely, and drag any component already
+  clear where a drop will land. Every component automatically looks like its
+  own type's stylesheet (edited on the Stylesheets tab) and re-syncs to it
+  each time it's reselected, no picking required. Click one to see and edit
+  its attributes on the right -- including its text label, for components
+  that have one. Right-click one for a Delete option. Nest components inside
+  a `div` or a `popup`'s content area freely, and drag any component already
   on the canvas to reposition it. "Save Screen" stores the current canvas as
   a named screen.
-- **Stylesheets** -- name a set of style properties (as JSON) and reuse it
-  against any Builder component via the attributes panel. Starts pre-seeded
-  with one sample stylesheet per Builder component (its own current look),
-  so there's something to pick from on a fresh install.
+- **Stylesheets** -- exactly one row per Builder component (its style, as
+  JSON). Edit and Save a row to change how every instance of that component
+  looks; rows can't be added or deleted, and a row's name is fixed to its
+  component's, since the two have to match.
 - **Screens** -- every screen saved from Builder, each with a live preview
   render. (Loading one back into the Builder for further editing isn't
   built yet.)
@@ -155,9 +156,33 @@ the directory, e.g. `npx serve .`) to use it.
   style onto the selected component correctly, but the dropdown itself had
   no memory -- reselecting that exact same component later always showed
   "Apply a stylesheet..." again, with no way to tell which one (if any) was
-  actually applied. Now the applied stylesheet's id is saved onto
-  `el._.opt.styleId` alongside the merged style, and the dropdown is set to
-  it when the attributes panel re-renders, so it reflects what's currently
-  linked. Still a one-time copy, not a live binding -- editing a stylesheet
-  afterward doesn't retroactively update components that already applied
-  it, only which one was last picked is now visible.
+  actually applied. The applied stylesheet's id was saved onto
+  `el._.opt.styleId` alongside the merged style, and the dropdown was set to
+  it when the attributes panel re-rendered, so it reflected what was
+  currently linked -- but only as a one-time copy, not a live binding:
+  editing a stylesheet afterward didn't retroactively update components
+  that had already applied it.
+- The dropdown-and-remember fix above was still solving a problem the
+  Stylesheets tab's own shape had already made unnecessary: eight component
+  types, one Stylesheets row already seeded per type by name. Picking one by
+  hand per canvas component had nothing left to actually decide once the
+  match was implicit in the type. Replaced the dropdown entirely with
+  `fn.component._.applyTypeStylesheet(el, typeName)`, called once at
+  creation (so a freshly-dropped component looks right immediately) and
+  again on selection (so reselecting after an edit resyncs it -- "always
+  latest," without needing to push updates out to every instance on canvas
+  the moment a stylesheet is edited). `typeName` is passed explicitly rather
+  than read from `el._.name`, since `fn.component.create` (`fn.js`) only
+  stamps that *after* a layout function returns; each of the eight layouts
+  already knows its own name statically. Stylesheets rows are now fixed at
+  exactly one per type -- no Add, no Delete, only an editable style per row
+  (a row's name has to keep matching its type's name for the lookup to
+  keep working, so it's shown read-only) -- which retired `form`'s
+  `opt.editable: true` "add a stylesheet" row from this app entirely
+  (`form` keeps the capability itself, just with no current caller). Doing
+  this surfaced a real self-reference bug before it shipped: Stylesheets'
+  own row list is itself built on the `list` component, which would
+  otherwise have applied the 'list' stylesheet to that very table, letting
+  an edited 'list' stylesheet visibly distort the Stylesheets tab's own
+  chrome -- fixed with `opt.skipStylesheet` on `list`, passed only by that
+  one internal usage.

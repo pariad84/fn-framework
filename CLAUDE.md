@@ -56,37 +56,28 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   from the palette is placed. A selected component's label (for `text`/
   `span`/`button`/`popup`) is edited via a text field in the attributes panel,
   not on canvas -- see "Components" below for why.
-- **Stylesheets**: CRUD (name + a style object) stored under `fn.data`'s
-  `'stylesheets'` key. Both halves are this app's own canvas components,
-  reused rather than hand-rolled: the "add a stylesheet" row is `form` with
-  `opt.editable: true` (a real typable form, not `form`'s usual canvas
-  mockup), and the row list itself is `list` (`column.render` supplies the
-  swatch preview and Delete button) -- see "Components" below for both.
-  `attributes-panel`'s own style-select reads this same key to apply one onto
-  a selected Builder component -- and remembers which one via
-  `el._.opt.styleId`, so reselecting that component later shows the
-  currently-applied stylesheet instead of always resetting to "Apply a
-  stylesheet..." with no way to tell what's already there (see
-  `renderAttributeRows` in `layout.js`). This is a one-time copy of the
-  stylesheet's style properties at the moment it's applied, not a live
-  link -- editing the stylesheet afterward doesn't update components that
-  already applied it; only which one was last picked is remembered. `app.js`
-  seeds one sample stylesheet per registered component (`text`, `span`,
-  `div`, `popup`, `button`, `textarea`,
-  `list`, `form`) before mounting `shell`, guarded the same
-  `fn.data.select({ key : ... }).length === 0` way every mini-framework
-  example's `app.js` already seeds its own sample data -- so this tab and the
-  attributes-panel dropdown both already have something to show on a fresh
-  install, even before the user visits Stylesheets once. Each seed's `style`
-  is read back from `sample._.opt.style` on a component actually created for
-  this (detached, no `opt.parent`) rather than a second hand-typed copy of
-  that component's style object, so it can't drift out of sync with the
-  component's real look -- the same field `renderAttributeRows` already
-  reads to show a selected component's own style rows. Deleting one
-  seeded row (or any row) deliberately doesn't bring it back; deleting *all*
-  rows and then reloading the whole page will reseed all 8, since `fn.data`
-  has no separate "already seeded once" flag beyond "is this resource
-  empty" -- an accepted, documented tradeoff, not a bug.
+- **Stylesheets**: exactly one row per registered component (name + a style
+  object), seeded once by `app.js` before mounting `shell` (guarded by
+  `fn.data.select({ key : ... }).length === 0`, the same way every
+  mini-framework example's `app.js` already seeds its own sample data) and
+  never added to or deleted from afterward -- only a row's `style` is
+  editable here, via a Save button per row; `name` is shown read-only, since
+  it has to stay exactly its component type's name for the matching below to
+  keep working. Each seed's `style` is read back from `sample._.opt.style`
+  on a component actually created for this (detached, no `opt.parent`)
+  rather than a second hand-typed copy of that component's style object, so
+  it can't drift out of sync with the component's real look -- the same
+  field `renderAttributeRows` already reads to show a selected component's
+  style rows. Every Builder component automatically applies its own
+  type-matching stylesheet by name at creation, and resyncs to whatever that
+  stylesheet currently holds on every reselection (see
+  `fn.component._.applyTypeStylesheet` and `selectComponent` in
+  `layout.js`) -- no per-component picking any more, and nothing to
+  remember, since the match is implicit in the component's own type. This
+  tab's own row list is rendered through the app's own `list` component with
+  `opt.skipStylesheet: true`, so that particular `list` instance doesn't
+  apply the 'list' stylesheet to itself (see the `list` layout's own comment
+  for why that would otherwise be a real, visible bug).
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
   preview render and Delete. Hand-rolled rather than `list` -- each row's
   preview is a full nested render (`renderPreviewNode`'s output), not a flat
@@ -109,21 +100,24 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   (`[{ name, label, list, form, render }, ...]`): `name` indexes into each
   `datas` row, `label` is the header text (`fn.component._.columnLabel` falls
   back to `name` only when `label` is actually missing, not just falsy -- an
-  intentionally blank `''` header, like Stylesheets' Delete column below,
-  stays blank), `list` is extra style merged onto that column's `th`/`td`
-  (e.g. `{ width: '160px' }`), and `form` rides along unused here -- it's
-  `form`'s own field below. `column.render(data)`, when given, replaces a
-  cell's default plain-text rendering with whatever DOM node it returns (see
-  Stylesheets' own list for a live style-preview swatch and a Delete button);
-  since it's a function, it never survives `fn.data`'s JSON storage, so only
-  use it on a list built fresh from live app code, never one meant to be
-  dropped onto the canvas and saved as a screen. Without `opt.columns`,
-  columns default to the first row's own keys. Cell content is otherwise
-  fixed at drop time (no on-canvas or attributes-panel editing -- see the
-  `list` layout's own comment for why); the resolved `datas`/`columns` are
-  stashed directly on the table element (`el.datas`/`el.columns`) rather
-  than reconstructed from the rendered header/cell text, since `label` and
-  `name` can now differ.
+  intentionally blank `''` header stays blank), `list` is extra style merged
+  onto that column's `th`/`td` (e.g. `{ width: '160px' }`), and `form` rides
+  along unused here -- it's `form`'s own field below. `column.render(data)`,
+  when given, replaces a cell's default plain-text rendering with whatever
+  DOM node it returns (see Stylesheets' own list for a live style-preview
+  swatch and an editable Style field); since it's a function, it never
+  survives `fn.data`'s JSON storage, so only use it on a list built fresh
+  from live app code, never one meant to be dropped onto the canvas and
+  saved as a screen. Without `opt.columns`, columns default to the first
+  row's own keys. Cell content is otherwise fixed at drop time (no on-canvas
+  or attributes-panel editing -- see the `list` layout's own comment for
+  why); the resolved `datas`/`columns` are stashed directly on the table
+  element (`el.datas`/`el.columns`) rather than reconstructed from the
+  rendered header/cell text, since `label` and `name` can now differ.
+  `opt.skipStylesheet: true` skips applying the 'list' stylesheet to this
+  particular instance -- Stylesheets' own row list passes it, since it
+  renders through this same layout and would otherwise pick up whatever the
+  'list' stylesheet holds onto its own chrome (see `fn.component._.applyTypeStylesheet`).
 - `form` -- `list`'s single-record counterpart: same `opt.columns` shape,
   but `opt.data` is one plain object (not an array) and each field reads
   `column.form` instead of `column.list` (a row-per-object array's per-cell
@@ -136,16 +130,19 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   natively focusable/selectable the same way `contenteditable` was (see
   below), so without that it would reopen the exact drag-vs-select conflict
   removing `contenteditable` was fixing. Pass `opt.editable: true` to opt out
-  of both and get a real, typable form instead -- Stylesheets' own "add a
-  stylesheet" row does this; a canvas-dropped form never should, so that
-  stays the default. An editable form's typed values live only in its own
-  DOM (each field carries `attribute.name = column.name`; read them back via
-  `formEl.querySelector('[name="..."]').value`, the way Stylesheets' own Add
-  handler does) -- `el.data` stays whatever `opt.data` was at creation, so
-  `serializeComponent` would save stale data for a form saved mid-edit; out
-  of scope today since nothing drags an editable form onto the canvas.
-  `el.data`/`el.columns` are stashed on the element the same way `list`
-  stashes `el.datas`/`el.columns`.
+  of both and get a real, typable form instead; a canvas-dropped form never
+  should, so that stays the default. No current caller in this app uses
+  `opt.editable` (Stylesheets' own "add a stylesheet" row, its one past use,
+  was removed once every component got a fixed one-per-type stylesheet
+  instead -- see "The app itself" above), but it's kept as a real, working
+  capability rather than stripped out along with that one caller. An
+  editable form's typed values would live only in its own DOM (each field
+  carries `attribute.name = column.name`; read them back via
+  `formEl.querySelector('[name="..."]').value`) -- `el.data` stays whatever
+  `opt.data` was at creation, so `serializeComponent` would save stale data
+  for a form saved mid-edit; out of scope since nothing drags an editable
+  form onto the canvas. `el.data`/`el.columns` are stashed on the element
+  the same way `list` stashes `el.datas`/`el.columns`.
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new
@@ -214,7 +211,7 @@ have their own `<wrapper>.refresh()` (rebuild children, re-run on CRUD),
 but `stylesheets` renders its rows through the app's own `list` component
 now while `screens` doesn't -- a deliberate difference, not drift, since a
 screens row's content (a full nested preview render) doesn't fit `list`'s
-flat-columns model the way a name/swatch/Delete row does.
+flat-columns model the way a name/swatch/style-editor row does.
 
 No CSS files or classes for styling -- everything inline via
 `fn.element.create`'s `style` option. `.__component`/`.__canvas`/
