@@ -89,11 +89,46 @@
         },
     });
 
+    // A plain <table>: opt.data.rows defaults to a 2-column sample (header row + two data
+    // rows); every cell is its own contenteditable td/th, the same "edit the sample content
+    // directly on the canvas" convention text/button already use, rather than one
+    // contenteditable on the table itself (structural edits like adding/removing cells don't
+    // behave consistently across browsers that way).
+    fn.component.layout.set({
+        name : 'list',
+        layout : function(opt) {
+            var rows = (opt.data && opt.data.rows) || [
+                [ 'Column 1', 'Column 2' ],
+                [ 'Row 1', 'Row 1' ],
+                [ 'Row 2', 'Row 2' ],
+            ];
+            var table = fn.element.create({
+                tagName : 'table',
+                attribute : { class : '__component' },
+                style : { borderCollapse : 'collapse' },
+                parent : opt.parent,
+            });
+            rows.forEach(function(rowValues, rowIndex) {
+                var tr = fn.element.create({ tagName : 'tr', parent : table });
+                rowValues.forEach(function(value) {
+                    fn.element.create({
+                        tagName : rowIndex === 0 ? 'th' : 'td',
+                        attribute : { contenteditable : 'true' },
+                        text : value,
+                        style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
+                        parent : tr,
+                    });
+                });
+            });
+            return table;
+        },
+    });
+
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
-    // each element, since a saved node needs to know 'box' (a container) from 'text'/'button'
-    // (their own contenteditable text) to be previewed or (later) reloaded. Reads live
-    // el.textContent for text/button rather than their original opt.data.text, since
+    // each element, since a saved node needs to know 'box' (a container) and 'list' (a grid of
+    // cells) from 'text'/'button' (their own contenteditable text) to be previewed or (later)
+    // reloaded. Reads live el.textContent/cell text rather than the original opt.data, since
     // contenteditable typing only ever changes the DOM, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
@@ -101,6 +136,10 @@
             node.children = Array.from(el.children)
                 .filter(function(child) { return child.classList.contains('__component'); })
                 .map(fn.component._.serializeComponent);
+        } else if (el._.name === 'list') {
+            node.data = { rows : Array.from(el.rows).map(function(tr) {
+                return Array.from(tr.children).map(function(cell) { return cell.textContent; });
+            }) };
         } else {
             node.data = { text : el.textContent };
         }
@@ -149,7 +188,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'list' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
@@ -376,8 +415,24 @@
 
     // Read-only rendering of one saved node -- deliberately plain elements rather than
     // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // box/canvas's own drop handling or text/button's contenteditable.
+    // box/canvas's own drop handling or text/button/list's contenteditable.
     fn.component._.renderPreviewNode = function(node) {
+        if (node.type === 'list') {
+            var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
+            node.data.rows.forEach(function(rowValues, rowIndex) {
+                var tr = fn.element.create({ tagName : 'tr', parent : table });
+                rowValues.forEach(function(value) {
+                    fn.element.create({
+                        tagName : rowIndex === 0 ? 'th' : 'td',
+                        text : value,
+                        style : { border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' },
+                        parent : tr,
+                    });
+                });
+            });
+            return table;
+        }
+
         var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
         if (node.type === 'box') {
             (node.children || []).forEach(function(child) {
