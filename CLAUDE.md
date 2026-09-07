@@ -17,6 +17,10 @@ truth for this app, not kept in sync with mini-framework's.
     a routed screen can flex-fill its container instead of sizing to content.
   - `fn.util.enableDrop({ el })` was added: wires `dragover`/`drop` so `el`
     accepts a dropped component by name. Shared by canvas/div/popup.
+  - `fn.util.enableDrag({ el })` was added: marks `el` as a drag source for
+    repositioning itself. `enableDrop` checks `fn.component._.draggedComponent`
+    (set/cleared here) to tell "move this existing element" from "create a new
+    one" on drop.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
   components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`) ->
   `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
@@ -33,7 +37,10 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
 - **Builder**: a palette (draggable component list) on the left, a canvas
   (drop target) in the middle, an attributes panel on the right. A toolbar
   above the canvas has "Save Screen", which serializes the canvas's component
-  tree and stores it under `fn.data`'s `'screens'` key.
+  tree and stores it under `fn.data`'s `'screens'` key. Any component already
+  on the canvas is itself draggable, so it can be repositioned -- moved to a
+  different container, or back out to the canvas -- the same way a new one
+  from the palette is placed.
 - **Stylesheets**: CRUD (name + a style object) stored under `fn.data`'s
   `'stylesheets'` key. Each row shows a live preview swatch with the style
   actually applied. `attributes-panel`'s own style-select reads this same key
@@ -62,7 +69,9 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 
 ## When adding a new component
 
-1. Register it via `fn.component.layout.set`, mark its root `.__component`.
+1. Register it via `fn.component.layout.set`, mark its root `.__component`,
+   and call `fn.util.enableDrag({ el })` on that same root so it can be
+   repositioned by drag like every other component.
 2. Add it to `builder`'s default palette list (`opt.components || [...]`).
 3. If it's a container: set `el.content` (see `div`/`popup`). If it's a leaf
    whose live value lives somewhere other than `.textContent` (like

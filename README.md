@@ -12,8 +12,9 @@ the directory, e.g. `npx serve .`) to use it.
   `textarea`, `list`) from the left palette onto the canvas. Click one to see
   and edit its attributes on the right, including applying a saved
   stylesheet from a dropdown. Right-click one for a Delete option. Nest
-  components inside a `div` or a `popup`'s content area freely. "Save
-  Screen" stores the current canvas as a named screen.
+  components inside a `div` or a `popup`'s content area freely, and drag any
+  component already on the canvas to reposition it. "Save Screen" stores the
+  current canvas as a named screen.
 - **Stylesheets** -- name a set of style properties (as JSON) and reuse it
   against any Builder component via the attributes panel.
 - **Screens** -- every screen saved from Builder, each with a live preview
@@ -42,3 +43,9 @@ the directory, e.g. `npx serve .`) to use it.
   `textarea`'s live value lives in `.value` instead -- each needed its own
   branch in the save logic once a real saved-screen-with-one case would
   otherwise have silently lost the typed content.
+- Repositioning an existing canvas component reuses the exact same drop
+  targets (`enableDrop`) a palette drag already lands on -- adding
+  `fn.util.enableDrag` and one shared flag (which element, if any, is
+  currently being dragged for a move) let `enableDrop` tell "move this" from
+  "create a new one" apart, instead of needing a second, parallel set of
+  drop zones just for repositioning.

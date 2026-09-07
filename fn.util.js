@@ -94,14 +94,37 @@
         return el;
     };
 
+    // Marks el as a drag source for repositioning itself, as opposed to a palette drag (which
+    // creates a brand new component, carrying its name in text/plain -- see enableDrop below).
+    // fn.component._.draggedComponent is the one piece of state the two share: set here on
+    // dragstart, read there on drop, cleared on dragend regardless of whether the drop landed
+    // on a valid target (so a cancelled drag -- dropped outside any drop zone, or Esc -- never
+    // leaves a stale reference around). Moving an existing element on drop rather than creating
+    // a new one has no reason to differ between apps any more than accepting a drop does, so
+    // this lives here alongside enableDrop rather than in layout.js.
+    fn.util.enableDrag = function(opt) {
+        opt.el.setAttribute('draggable', 'true');
+        opt.el.addEventListener('dragstart', function(e) {
+            e.stopPropagation();
+            fn.component._.draggedComponent = opt.el;
+        });
+        opt.el.addEventListener('dragend', function() {
+            fn.component._.draggedComponent = null;
+        });
+    };
+
     // Was written as the page builder's own fn.component._.enableDrop, for both its `canvas`
-    // and its `box` (a box needing to accept drops itself, the same way the canvas does, is what
-    // makes text/box nestable inside a box at all). Wiring an element to accept a dropped
-    // component by name has no reason to differ between apps the way a canvas's/box's own
+    // and its `div` (a div needing to accept drops itself, the same way the canvas does, is what
+    // makes text/div nestable inside a div at all). Wiring an element to accept a dropped
+    // component by name has no reason to differ between apps the way a canvas's/div's own
     // styling does, so it belongs here rather than in layout.js -- opt.el ends up owning
     // whatever's dropped on it, same as opt.parent elsewhere in this file. drop stops
-    // propagation so a drop on a nested drop target (a box inside a box) is only ever inserted
+    // propagation so a drop on a nested drop target (a div inside a div) is only ever inserted
     // once, into the innermost one under the cursor, instead of also bubbling up to an ancestor.
+    // If fn.component._.draggedComponent is set (see enableDrag above), this is a reposition --
+    // move that existing element here instead of creating a new one, unless the drop target is
+    // the dragged element itself or one of its own descendants (moving something into its own
+    // child isn't meaningful, and .appendChild would throw).
     fn.util.enableDrop = function(opt) {
         opt.el.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -110,6 +133,13 @@
         opt.el.addEventListener('drop', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            var dragged = fn.component._.draggedComponent;
+            if (dragged) {
+                if (dragged !== opt.el && !dragged.contains(opt.el)) {
+                    opt.el.appendChild(dragged);
+                }
+                return;
+            }
             var name = e.dataTransfer.getData('text/plain');
             if (fn.component.layout.get({ name : name })) {
                 fn.component.create({ name : name, parent : opt.el });

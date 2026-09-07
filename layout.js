@@ -52,26 +52,30 @@
     fn.component.layout.set({
         name : 'text',
         layout : function(opt) {
-            return fn.element.create({
+            var text = fn.element.create({
                 tagName : 'div',
                 attribute : { contenteditable : 'true', class : '__component' },
                 text : (opt.data && opt.data.text) || 'Text',
                 style : { padding : '4px', minWidth : '20px', outline : 'none' },
                 parent : opt.parent,
             });
+            fn.util.enableDrag({ el : text });
+            return text;
         },
     });
 
     fn.component.layout.set({
         name : 'span',
         layout : function(opt) {
-            return fn.element.create({
+            var span = fn.element.create({
                 tagName : 'span',
                 attribute : { contenteditable : 'true', class : '__component' },
                 text : (opt.data && opt.data.text) || 'Span',
                 style : { padding : '4px', minWidth : '20px', display : 'inline-block', outline : 'none' },
                 parent : opt.parent,
             });
+            fn.util.enableDrag({ el : span });
+            return span;
         },
     });
 
@@ -89,6 +93,7 @@
             // drop target. serializeComponent reads any el.content as "this is a container".
             div.content = div;
             fn.util.enableDrop({ el : div.content });
+            fn.util.enableDrag({ el : div });
             return div;
         },
     });
@@ -128,6 +133,7 @@
                 parent : popup,
             });
             fn.util.enableDrop({ el : popup.content });
+            fn.util.enableDrag({ el : popup });
 
             return popup;
         },
@@ -136,13 +142,15 @@
     fn.component.layout.set({
         name : 'button',
         layout : function(opt) {
-            return fn.element.create({
+            var button = fn.element.create({
                 tagName : 'button',
                 attribute : { type : 'button', contenteditable : 'true', class : '__component' },
                 text : (opt.data && opt.data.text) || 'Button',
                 style : { padding : '8px 16px' },
                 parent : opt.parent,
             });
+            fn.util.enableDrag({ el : button });
+            return button;
         },
     });
 
@@ -153,13 +161,15 @@
     fn.component.layout.set({
         name : 'textarea',
         layout : function(opt) {
-            return fn.element.create({
+            var textarea = fn.element.create({
                 tagName : 'textarea',
                 attribute : { class : '__component' },
                 text : (opt.data && opt.data.text) || 'Textarea',
                 style : { padding : '8px', minHeight : '60px', font : 'inherit' },
                 parent : opt.parent,
             });
+            fn.util.enableDrag({ el : textarea });
+            return textarea;
         },
     });
 
@@ -194,6 +204,7 @@
                     });
                 });
             });
+            fn.util.enableDrag({ el : table });
             return table;
         },
     });
