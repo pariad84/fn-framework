@@ -168,6 +168,30 @@
             return wrap;
         }
 
+        var styleSelect = fn.element.create({
+            tagName : 'select',
+            style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+            parent : wrap,
+        });
+        fn.element.create({ tagName : 'option', attribute : { value : '' }, text : 'Apply a stylesheet...', parent : styleSelect });
+        fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
+            fn.element.create({ tagName : 'option', attribute : { value : row.id }, text : row.name, parent : styleSelect });
+        });
+        styleSelect.addEventListener('change', function(e) {
+            if (!e.target.value) {
+                return;
+            }
+            var stylesheet = fn.data.select({ key : 'stylesheets', id : Number(e.target.value) });
+            if (!stylesheet) {
+                return;
+            }
+            el._.opt.style = Object.assign({}, el._.opt.style, stylesheet.data.style);
+            for (const [key, value] of Object.entries(stylesheet.data.style)) {
+                el.style[key] = value;
+            }
+            e.target.closest('.__attributes-panel').refresh(el);
+        });
+
         var opt = el._.opt || {};
         var attribute = Object.assign({}, opt.attribute);
         delete attribute.class;
@@ -206,9 +230,8 @@
     });
 
     // CRUD for a resource this app owns (name + a style object), same fn.data.select/insert/
-    // delete verbs every mini-framework example uses. Matching a saved stylesheet onto a
-    // builder component is a separate, not-yet-built feature this only lays the data for --
-    // for now this is its own standalone list, not yet wired to `attributes-panel`.
+    // delete verbs every mini-framework example uses. `attributes-panel`'s own style-select
+    // reads this same 'stylesheets' key to apply one onto a selected builder component.
     fn.component.layout.set({
         name : 'stylesheets',
         layout : function(opt = {}) {
