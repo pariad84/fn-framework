@@ -71,8 +71,52 @@
                 style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #d9dce1' },
                 parent : opt.parent,
             });
-            fn.util.enableDrop({ el : box });
+            // .content marks where a container's own children/drops go -- for box that's just
+            // itself; popup (below) sets it to an inner div instead, since its header isn't a
+            // drop target. serializeComponent reads any el.content as "this is a container".
+            box.content = box;
+            fn.util.enableDrop({ el : box.content });
             return box;
+        },
+    });
+
+    // Chrome around the same drop-target content area box has, styled like a modal card
+    // (fn.component.layout.js's popup convention) but rendered inline rather than
+    // position:fixed, since this is the design canvas, not a live running page. The close "✕"
+    // is purely visual here -- clicking it just selects the popup like clicking anywhere else
+    // on it would, the same way none of these components simulate their own runtime behavior.
+    fn.component.layout.set({
+        name : 'popup',
+        layout : function(opt) {
+            var popup = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { background : '#ffffff', border : '1px solid #d9dce1', borderRadius : '8px', boxShadow : '0 4px 12px rgba(0, 0, 0, 0.08)', minWidth : '200px' },
+                parent : opt.parent,
+            });
+
+            var header = fn.element.create({
+                tagName : 'div',
+                style : { display : 'flex', justifyContent : 'space-between', alignItems : 'center', gap : '12px', padding : '10px 14px', borderBottom : '1px solid #d9dce1' },
+                parent : popup,
+            });
+            fn.element.create({
+                tagName : 'div',
+                attribute : { contenteditable : 'true', class : '__popup-title' },
+                text : (opt.data && opt.data.title) || 'Popup',
+                style : { fontWeight : '600' },
+                parent : header,
+            });
+            fn.element.create({ tagName : 'div', text : '✕', style : { color : '#6b7280' }, parent : header });
+
+            popup.content = fn.element.create({
+                tagName : 'div',
+                style : { minHeight : '60px', margin : '10px', padding : '10px', border : '1px dashed #d9dce1' },
+                parent : popup,
+            });
+            fn.util.enableDrop({ el : popup.content });
+
+            return popup;
         },
     });
 
@@ -126,16 +170,20 @@
 
     // Turns a canvas's live component tree into plain data the `screens` tab can store/list --
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
-    // each element, since a saved node needs to know 'box' (a container) and 'list' (a grid of
-    // cells) from 'text'/'button' (their own contenteditable text) to be previewed or (later)
-    // reloaded. Reads live el.textContent/cell text rather than the original opt.data, since
-    // contenteditable typing only ever changes the DOM, never that original opt.
+    // each element. A container (box, popup -- anything that sets its own el.content, see box's
+    // comment above) walks el.content's children; 'list' reads its grid of cell text; anything
+    // else (text/button) is read as its own contenteditable text. Reads live text/cells rather
+    // than the original opt.data, since contenteditable typing only ever changes the DOM, never
+    // that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
-        if (el._.name === 'box') {
-            node.children = Array.from(el.children)
+        if (el.content) {
+            node.children = Array.from(el.content.children)
                 .filter(function(child) { return child.classList.contains('__component'); })
                 .map(fn.component._.serializeComponent);
+            if (el._.name === 'popup') {
+                node.data = { title : el.querySelector('.__popup-title').textContent };
+            }
         } else if (el._.name === 'list') {
             node.data = { rows : Array.from(el.rows).map(function(tr) {
                 return Array.from(tr.children).map(function(cell) { return cell.textContent; });
@@ -188,7 +236,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'list' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'box', 'button', 'list', 'popup' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
@@ -415,7 +463,7 @@
 
     // Read-only rendering of one saved node -- deliberately plain elements rather than
     // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // box/canvas's own drop handling or text/button/list's contenteditable.
+    // box/popup/canvas's own drop handling or text/button/list's contenteditable.
     fn.component._.renderPreviewNode = function(node) {
         if (node.type === 'list') {
             var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
@@ -434,8 +482,11 @@
         }
 
         var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
-        if (node.type === 'box') {
-            (node.children || []).forEach(function(child) {
+        if (node.children) {
+            if (node.type === 'popup') {
+                fn.element.create({ tagName : 'div', text : node.data.title, style : { fontWeight : '600' }, parent : el });
+            }
+            node.children.forEach(function(child) {
                 el.appendChild(fn.component._.renderPreviewNode(child));
             });
         } else {
