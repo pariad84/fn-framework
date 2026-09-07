@@ -555,6 +555,11 @@
         fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
             fn.element.create({ tagName : 'option', attribute : { value : row.id }, text : row.name, parent : styleSelect });
         });
+        // Reflects whichever stylesheet is currently linked to el (el._.opt.styleId, set below)
+        // so reselecting the same component later shows what's applied instead of always
+        // resetting to "Apply a stylesheet..." with no way to tell. A styleId with no matching
+        // option (its stylesheet was deleted since) just leaves the select on its blank default.
+        styleSelect.value = el._.opt.styleId != null ? String(el._.opt.styleId) : '';
         styleSelect.addEventListener('change', function(e) {
             if (!e.target.value) {
                 return;
@@ -564,6 +569,7 @@
                 return;
             }
             el._.opt.style = Object.assign({}, el._.opt.style, stylesheet.data.style);
+            el._.opt.styleId = stylesheet.id;
             for (const [key, value] of Object.entries(stylesheet.data.style)) {
                 el.style[key] = value;
             }

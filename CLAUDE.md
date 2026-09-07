@@ -63,8 +63,16 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   mockup), and the row list itself is `list` (`column.render` supplies the
   swatch preview and Delete button) -- see "Components" below for both.
   `attributes-panel`'s own style-select reads this same key to apply one onto
-  a selected Builder component. `app.js` seeds one sample stylesheet per
-  registered component (`text`, `span`, `div`, `popup`, `button`, `textarea`,
+  a selected Builder component -- and remembers which one via
+  `el._.opt.styleId`, so reselecting that component later shows the
+  currently-applied stylesheet instead of always resetting to "Apply a
+  stylesheet..." with no way to tell what's already there (see
+  `renderAttributeRows` in `layout.js`). This is a one-time copy of the
+  stylesheet's style properties at the moment it's applied, not a live
+  link -- editing the stylesheet afterward doesn't update components that
+  already applied it; only which one was last picked is remembered. `app.js`
+  seeds one sample stylesheet per registered component (`text`, `span`,
+  `div`, `popup`, `button`, `textarea`,
   `list`, `form`) before mounting `shell`, guarded the same
   `fn.data.select({ key : ... }).length === 0` way every mini-framework
   example's `app.js` already seeds its own sample data -- so this tab and the

@@ -151,3 +151,13 @@ the directory, e.g. `npx serve .`) to use it.
   too, even though it never calls `enableDrag` -- so a drag cancelled
   outside any drop target, or outside the window, never leaves a stale
   highlight.
+- Applying a stylesheet from attributes-panel's dropdown always merged its
+  style onto the selected component correctly, but the dropdown itself had
+  no memory -- reselecting that exact same component later always showed
+  "Apply a stylesheet..." again, with no way to tell which one (if any) was
+  actually applied. Now the applied stylesheet's id is saved onto
+  `el._.opt.styleId` alongside the merged style, and the dropdown is set to
+  it when the attributes panel re-renders, so it reflects what's currently
+  linked. Still a one-time copy, not a live binding -- editing a stylesheet
+  afterward doesn't retroactively update components that already applied
+  it, only which one was last picked is now visible.
