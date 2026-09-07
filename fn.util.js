@@ -90,4 +90,27 @@
         el.refresh();
         return el;
     };
+
+    // Was written as the page builder's own fn.component._.enableDrop, for both its `canvas`
+    // and its `box` (a box needing to accept drops itself, the same way the canvas does, is what
+    // makes text/box nestable inside a box at all). Wiring an element to accept a dropped
+    // component by name has no reason to differ between apps the way a canvas's/box's own
+    // styling does, so it belongs here rather than in layout.js -- opt.el ends up owning
+    // whatever's dropped on it, same as opt.parent elsewhere in this file. drop stops
+    // propagation so a drop on a nested drop target (a box inside a box) is only ever inserted
+    // once, into the innermost one under the cursor, instead of also bubbling up to an ancestor.
+    fn.util.enableDrop = function(opt) {
+        opt.el.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        opt.el.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var name = e.dataTransfer.getData('text/plain');
+            if (fn.component.layout.get({ name : name })) {
+                fn.component.create({ name : name, parent : opt.el });
+            }
+        });
+    };
 })();

@@ -14,25 +14,6 @@
         },
     });
 
-    // Shared by canvas and box below, so any container a component can be dropped into (the
-    // canvas itself, or a box nested any number of levels deep) accepts drops the same way.
-    // drop stops propagation so a drop on a nested box is only ever inserted once, into the
-    // innermost box under the cursor, instead of also bubbling up to an ancestor box/canvas.
-    fn.component._.enableDrop = function(el) {
-        el.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-        el.addEventListener('drop', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var name = e.dataTransfer.getData('text/plain');
-            if (fn.component.layout.get({ name : name })) {
-                fn.component.create({ name : name, parent : el });
-            }
-        });
-    };
-
     fn.component.layout.set({
         name : 'box',
         layout : function(opt) {
@@ -42,7 +23,7 @@
                 style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #3a3f4b' },
                 parent : opt.parent,
             });
-            fn.component._.enableDrop(box);
+            fn.util.enableDrop({ el : box });
             return box;
         },
     });
@@ -120,7 +101,7 @@
                     },
                 },
             });
-            fn.component._.enableDrop(canvas);
+            fn.util.enableDrop({ el : canvas });
             return canvas;
         },
     });
