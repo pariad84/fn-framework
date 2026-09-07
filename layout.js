@@ -6,7 +6,7 @@
         layout : function(opt) {
             return fn.element.create({
                 tagName : 'div',
-                attribute : { contenteditable : 'true' },
+                attribute : { contenteditable : 'true', class : '__component' },
                 text : (opt.data && opt.data.text) || 'Text',
                 style : { padding : '4px', minWidth : '20px', outline : 'none' },
                 parent : opt.parent,
@@ -14,14 +14,36 @@
         },
     });
 
+    // Shared by canvas and box below, so any container a component can be dropped into (the
+    // canvas itself, or a box nested any number of levels deep) accepts drops the same way.
+    // drop stops propagation so a drop on a nested box is only ever inserted once, into the
+    // innermost box under the cursor, instead of also bubbling up to an ancestor box/canvas.
+    fn.component._.enableDrop = function(el) {
+        el.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        el.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var name = e.dataTransfer.getData('text/plain');
+            if (fn.component.layout.get({ name : name })) {
+                fn.component.create({ name : name, parent : el });
+            }
+        });
+    };
+
     fn.component.layout.set({
         name : 'box',
         layout : function(opt) {
-            return fn.element.create({
+            var box = fn.element.create({
                 tagName : 'div',
+                attribute : { class : '__component' },
                 style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #3a3f4b' },
                 parent : opt.parent,
             });
+            fn.component._.enableDrop(box);
+            return box;
         },
     });
 
@@ -79,18 +101,18 @@
                 attribute : { class : '__canvas' },
                 style : { flex : '1', padding : '16px', overflowY : 'auto', background : '#0f1115' },
                 event : {
-                    dragover : function(e) { e.preventDefault(); },
-                    drop : function(e) {
-                        e.preventDefault();
-                        var name = e.dataTransfer.getData('text/plain');
-                        if (fn.component.layout.get({ name : name })) {
-                            fn.component.create({ name : name, parent : e.currentTarget });
-                        }
-                    },
+                    // Delegated from the canvas root rather than attached per component, so it
+                    // keeps working no matter how deeply text/box end up nested inside each
+                    // other. .closest('.__component') starting from e.target always resolves to
+                    // the innermost component under the click, since e.target is already that
+                    // deepest element (or one of its own children, for text's own contents).
                     click : function(e) {
                         var canvasEl = e.currentTarget;
-                        var selected = Array.from(canvasEl.children).find(function(child) { return child.contains(e.target); });
-                        Array.from(canvasEl.children).forEach(function(child) { child.style.outline = ''; });
+                        var selected = e.target.closest('.__component');
+                        if (canvasEl._.selected) {
+                            canvasEl._.selected.style.outline = '';
+                        }
+                        canvasEl._.selected = selected || null;
                         if (selected) {
                             selected.style.outline = '2px solid #8ab4f8';
                         }
@@ -98,6 +120,7 @@
                     },
                 },
             });
+            fn.component._.enableDrop(canvas);
             return canvas;
         },
     });
@@ -114,7 +137,9 @@
         }
 
         var opt = el._.opt || {};
-        var rows = Object.assign({ tag : el.tagName.toLowerCase() }, opt.attribute || {}, opt.style || {});
+        var attribute = Object.assign({}, opt.attribute);
+        delete attribute.class;
+        var rows = Object.assign({ tag : el.tagName.toLowerCase() }, attribute, opt.style || {});
         Object.keys(rows).forEach(function(key) {
             var row = fn.element.create({
                 tagName : 'div',
