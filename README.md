@@ -10,11 +10,12 @@ the directory, e.g. `npx serve .`) to use it.
 
 - **Builder** -- drag components (`text`, `span`, `div`, `popup`, `button`,
   `textarea`, `list`) from the left palette onto the canvas. Click one to see
-  and edit its attributes on the right, including applying a saved
-  stylesheet from a dropdown. Right-click one for a Delete option. Nest
-  components inside a `div` or a `popup`'s content area freely, and drag any
-  component already on the canvas to reposition it. "Save Screen" stores the
-  current canvas as a named screen.
+  and edit its attributes on the right -- including its text label, for
+  components that have one -- and to apply a saved stylesheet from a
+  dropdown. Right-click one for a Delete option. Nest components inside a
+  `div` or a `popup`'s content area freely, and drag any component already
+  on the canvas to reposition it. "Save Screen" stores the current canvas as
+  a named screen.
 - **Stylesheets** -- name a set of style properties (as JSON) and reuse it
   against any Builder component via the attributes panel.
 - **Screens** -- every screen saved from Builder, each with a live preview
@@ -49,3 +50,13 @@ the directory, e.g. `npx serve .`) to use it.
   currently being dragged for a move) let `enableDrop` tell "move this" from
   "create a new one" apart, instead of needing a second, parallel set of
   drop zones just for repositioning.
+- `text`/`span`/`button` started out `contenteditable`, edited directly on
+  canvas, with `popup`'s title the same way. Once repositioning (above) made
+  every component draggable too, a real user's mousedown on the visible
+  label became ambiguous between "select this text" and "drag this
+  component" -- confirmed with actual mouse-drag Playwright tests (not just
+  synthetic `DragEvent`s) to fail unpredictably depending on click position
+  and focus history. Removed `contenteditable` entirely and moved editing
+  into a text field on the attributes panel instead of adding a separate
+  drag handle, since this app is for arranging components on a screen, not
+  for typing into them in place.

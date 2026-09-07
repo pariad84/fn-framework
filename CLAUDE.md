@@ -40,7 +40,9 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   tree and stores it under `fn.data`'s `'screens'` key. Any component already
   on the canvas is itself draggable, so it can be repositioned -- moved to a
   different container, or back out to the canvas -- the same way a new one
-  from the palette is placed.
+  from the palette is placed. A selected component's label (for `text`/
+  `span`/`button`/`popup`) is edited via a text field in the attributes panel,
+  not on canvas -- see "Components" below for why.
 - **Stylesheets**: CRUD (name + a style object) stored under `fn.data`'s
   `'stylesheets'` key. Each row shows a live preview swatch with the style
   actually applied. `attributes-panel`'s own style-select reads this same key
@@ -55,17 +57,33 @@ Each is a `fn.component.layout.set({ name, layout })` registration, marked
 with class `.__component` so canvas's delegated click/contextmenu handlers
 and `enableDrop`'s target-detection can find them regardless of nesting depth.
 
-- `text`, `span`, `button` -- contenteditable div/span/button, edited directly
-  on canvas (`text` block-level, `span` inline).
-- `textarea` -- a real `<textarea>`, edited via its own `.value` (not
-  contenteditable -- a form control already has its own editing).
-- `list` -- a `<table>`; every cell is its own contenteditable `td`/`th`.
+- `text`, `span`, `button` -- a plain div/span/button; the label is `el.textContent`,
+  edited via attributes-panel's text field (see below), not directly on
+  canvas (`text` block-level, `span` inline).
+- `textarea` -- a real `<textarea>`, edited via its own `.value`.
+- `list` -- a `<table>`; cell content is fixed at drop time (no on-canvas or
+  attributes-panel editing -- see the `list` layout's own comment for why).
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new
   container component must do the same** -- `serializeComponent`,
   `enableDrop`, and `renderPreviewNode` all key off `el.content`/
-  `node.children` existing, not a hardcoded name list.
+  `node.children` existing, not a hardcoded name list. `popup` also has a
+  label of its own (`.__popup-title`, distinct from its children).
+
+None of these are `contenteditable` any more. They used to be (`text`/`span`/
+`button` directly, `popup` on its title), but a real user's mousedown on the
+visible label was ambiguous between "select this text" (native browser
+behavior) and "drag this component" (`fn.util.enableDrag`) -- confirmed with
+real mouse-drag Playwright tests (not just synthetic `DragEvent`s) to fail
+unpredictably depending on exactly where the drag started and whether the
+element had already been focused once. Editing moved to attributes-panel's
+own text field instead of adding a separate drag handle, since this app is
+for arranging components, not for typing into them on canvas -- see
+`renderAttributeRows`'s `textTarget` in `layout.js` for the one place that
+decides which element's text a selected component's field edits (`el` itself
+for a leaf, `el.querySelector('.__popup-title')` for `popup`, nothing for
+`list`/`textarea`/`div`).
 
 ## When adding a new component
 
@@ -83,6 +101,13 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 4. If `renderPreviewNode` needs to render it as something other than "plain
    text" or "container with children" (see `list`'s table branch), add a
    branch there too.
+   If it's a leaf whose whole content is one editable string in `.textContent`
+   (like `text`/`span`/`button`), it's already covered by `renderAttributeRows`'s
+   `textTarget` fallback (`!el.content && el._.name !== 'list' && el._.name !==
+   'textarea'`) -- no extra wiring needed. If it keeps that string somewhere
+   else (like `popup`'s title), add a case to `textTarget` instead. Do **not**
+   make it `contenteditable` to edit it on canvas instead -- see "Components"
+   above for why that conflicts with `enableDrag`.
 5. `node --check layout.js`, then verify in a real browser via Playwright --
    drop it (and nest it, if it's a container), select it and check the
    attributes panel, save a screen containing it and check the Screens tab

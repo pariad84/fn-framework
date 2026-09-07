@@ -54,7 +54,7 @@
         layout : function(opt) {
             var text = fn.element.create({
                 tagName : 'div',
-                attribute : { contenteditable : 'true', class : '__component' },
+                attribute : { class : '__component' },
                 text : (opt.data && opt.data.text) || 'Text',
                 style : { padding : '4px', minWidth : '20px', outline : 'none' },
                 parent : opt.parent,
@@ -69,7 +69,7 @@
         layout : function(opt) {
             var span = fn.element.create({
                 tagName : 'span',
-                attribute : { contenteditable : 'true', class : '__component' },
+                attribute : { class : '__component' },
                 text : (opt.data && opt.data.text) || 'Span',
                 style : { padding : '4px', minWidth : '20px', display : 'inline-block', outline : 'none' },
                 parent : opt.parent,
@@ -120,7 +120,7 @@
             });
             fn.element.create({
                 tagName : 'div',
-                attribute : { contenteditable : 'true', class : '__popup-title' },
+                attribute : { class : '__popup-title' },
                 text : (opt.data && opt.data.title) || 'Popup',
                 style : { fontWeight : '600' },
                 parent : header,
@@ -144,7 +144,7 @@
         layout : function(opt) {
             var button = fn.element.create({
                 tagName : 'button',
-                attribute : { type : 'button', contenteditable : 'true', class : '__component' },
+                attribute : { type : 'button', class : '__component' },
                 text : (opt.data && opt.data.text) || 'Button',
                 style : { padding : '8px 16px' },
                 parent : opt.parent,
@@ -154,10 +154,8 @@
         },
     });
 
-    // A native <textarea> -- edited directly like text/button, but through its own .value
-    // rather than contenteditable (a real form control already has its own editing, and
-    // .value is what changes as the user types, not its textContent -- serializeComponent
-    // below reads that instead for this one component).
+    // A native <textarea>, edited through its own .value like any real form control --
+    // serializeComponent below reads that instead of .textContent for this one component.
     fn.component.layout.set({
         name : 'textarea',
         layout : function(opt) {
@@ -174,10 +172,9 @@
     });
 
     // A plain <table>: opt.data.rows defaults to a 2-column sample (header row + two data
-    // rows); every cell is its own contenteditable td/th, the same "edit the sample content
-    // directly on the canvas" convention text/button already use, rather than one
-    // contenteditable on the table itself (structural edits like adding/removing cells don't
-    // behave consistently across browsers that way).
+    // rows). Cells aren't editable on canvas (see the text/span/button/popup note below for
+    // why none of this app's components are anymore) and there's no single string to plug into
+    // attributes-panel's text field either, so a list's cell content is fixed at drop time.
     fn.component.layout.set({
         name : 'list',
         layout : function(opt) {
@@ -197,7 +194,6 @@
                 rowValues.forEach(function(value) {
                     fn.element.create({
                         tagName : rowIndex === 0 ? 'th' : 'td',
-                        attribute : { contenteditable : 'true' },
                         text : value,
                         style : { border : '1px solid #d9dce1', padding : '6px 10px', textAlign : 'left' },
                         parent : tr,
@@ -213,10 +209,12 @@
     // relies on fn.js's fn.component.create stamping el._.name with the layout that produced
     // each element. A container (div, popup -- anything that sets its own el.content, see div's
     // comment above) walks el.content's children; 'list' reads its grid of cell text; 'textarea'
-    // reads its own .value (a real form control's live value, unlike contenteditable, never
-    // shows up in .textContent); anything else (text/button) is read as its own contenteditable
-    // text. Reads all of these live rather than the original opt.data, since typing only ever
-    // changes the DOM/value, never that original opt.
+    // reads its own .value (a real form control's live value, unlike a plain div/span/button,
+    // never shows up in .textContent); anything else (text/span/button) is read as its own
+    // textContent, kept current by attributes-panel's text field (see renderAttributeRows)
+    // rather than by editing on canvas -- see that field's comment for why. Reads all of these
+    // live rather than the original opt.data, since editing only ever changes the DOM/value,
+    // never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -415,6 +413,30 @@
             return wrap;
         }
 
+        // text/span/button/popup used to be edited via contenteditable directly on canvas, but
+        // that put draggable and contenteditable on the same element -- a real user's mousedown
+        // on the visible label was ambiguous between "select this text" and "drag this
+        // component", and native browsers resolved it as text selection often enough to make
+        // repositioning unreliable (confirmed with real mouse drag events, not just synthetic
+        // DragEvents). Editing here instead sidesteps the conflict entirely rather than adding a
+        // separate drag handle, since this app is for arranging components, not for typing into
+        // them on canvas. popup's title lives in a child (.__popup-title), not its own
+        // textContent, since a popup's textContent would also include its children's text.
+        var textTarget = el._.name === 'popup' ? el.querySelector('.__popup-title')
+            : (!el.content && el._.name !== 'list' && el._.name !== 'textarea') ? el
+            : null;
+        if (textTarget) {
+            var textInput = fn.element.create({
+                tagName : 'input',
+                attribute : { type : 'text', value : textTarget.textContent, placeholder : 'Text' },
+                style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
+                parent : wrap,
+            });
+            textInput.addEventListener('input', function(e) {
+                textTarget.textContent = e.target.value;
+            });
+        }
+
         var styleSelect = fn.element.create({
             tagName : 'select',
             style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
@@ -564,7 +586,7 @@
 
     // Read-only rendering of one saved node -- deliberately plain elements rather than
     // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
-    // div/popup/canvas's own drop handling or text/button/list's contenteditable.
+    // div/popup/canvas's own drop handling or any component's own draggability.
     fn.component._.renderPreviewNode = function(node) {
         if (node.type === 'list') {
             var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
