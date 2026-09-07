@@ -111,3 +111,9 @@ the directory, e.g. `npx serve .`) to use it.
   `opt.editable`, so it keeps the safe (readonly) default; an editable
   form's typed values are read back from its own DOM by each field's
   `name` attribute, the same way any other real form control would be.
+- `builder`'s toolbar ("Save Screen") originally sat above the whole
+  palette/canvas/attributes-panel row, spanning the full width. Moved it
+  into its own flex column wrapping just the canvas, so palette and
+  attributes-panel now run the full height right below the nav bar instead
+  of starting below an empty strip of toolbar that was never over them to
+  begin with.

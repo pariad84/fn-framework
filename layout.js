@@ -345,13 +345,25 @@
             var builder = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__builder' },
+                style : { display : 'flex', flex : '1', minHeight : '0' },
+            });
+
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : builder });
+
+            // The toolbar sits only above canvas, not the full builder width -- wrapping canvas
+            // in its own flex column (rather than putting the toolbar back at the builder level)
+            // keeps palette/attributes-panel exactly as tall as the canvas column, with nothing
+            // above them.
+            var canvasColumn = fn.element.create({
+                tagName : 'div',
                 style : { display : 'flex', flexDirection : 'column', flex : '1', minHeight : '0' },
+                parent : builder,
             });
 
             var toolbar = fn.element.create({
                 tagName : 'div',
                 style : { display : 'flex', justifyContent : 'flex-end', padding : '8px 12px', background : '#ffffff', borderBottom : '1px solid #d9dce1', flexShrink : '0' },
-                parent : builder,
+                parent : canvasColumn,
             });
             fn.element.create({
                 tagName : 'button',
@@ -375,10 +387,8 @@
                 parent : toolbar,
             });
 
-            var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : body });
-            fn.component.create({ name : 'canvas', parent : body });
-            fn.component.create({ name : 'attributes-panel', parent : body });
+            fn.component.create({ name : 'canvas', parent : canvasColumn });
+            fn.component.create({ name : 'attributes-panel', parent : builder });
 
             return builder;
         },
