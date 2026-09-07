@@ -18,7 +18,7 @@ truth for this app, not kept in sync with mini-framework's.
   - `fn.util.enableDrop({ el })` was added: wires `dragover`/`drop` so `el`
     accepts a dropped component by name. Shared by canvas/div/popup.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
-  components (`text`/`div`/`popup`/`button`/`textarea`/`list`) ->
+  components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`) ->
   `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
   `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
 - `app.js` -- mounts `shell` into `document.body`. Nothing else.
@@ -48,7 +48,8 @@ Each is a `fn.component.layout.set({ name, layout })` registration, marked
 with class `.__component` so canvas's delegated click/contextmenu handlers
 and `enableDrop`'s target-detection can find them regardless of nesting depth.
 
-- `text`, `button` -- contenteditable div/button, edited directly on canvas.
+- `text`, `span`, `button` -- contenteditable div/span/button, edited directly
+  on canvas (`text` block-level, `span` inline).
 - `textarea` -- a real `<textarea>`, edited via its own `.value` (not
   contenteditable -- a form control already has its own editing).
 - `list` -- a `<table>`; every cell is its own contenteditable `td`/`th`.

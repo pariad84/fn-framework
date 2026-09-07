@@ -8,7 +8,7 @@ the directory, e.g. `npx serve .`) to use it.
 
 ## Three tabs
 
-- **Builder** -- drag components (`text`, `div`, `popup`, `button`,
+- **Builder** -- drag components (`text`, `span`, `div`, `popup`, `button`,
   `textarea`, `list`) from the left palette onto the canvas. Click one to see
   and edit its attributes on the right, including applying a saved
   stylesheet from a dropdown. Right-click one for a Delete option. Nest

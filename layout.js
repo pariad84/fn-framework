@@ -63,6 +63,19 @@
     });
 
     fn.component.layout.set({
+        name : 'span',
+        layout : function(opt) {
+            return fn.element.create({
+                tagName : 'span',
+                attribute : { contenteditable : 'true', class : '__component' },
+                text : (opt.data && opt.data.text) || 'Span',
+                style : { padding : '4px', minWidth : '20px', display : 'inline-block', outline : 'none' },
+                parent : opt.parent,
+            });
+        },
+    });
+
+    fn.component.layout.set({
         name : 'div',
         layout : function(opt) {
             var div = fn.element.create({
@@ -256,7 +269,7 @@
             });
 
             var body = fn.element.create({ tagName : 'div', style : { display : 'flex', flex : '1', minHeight : '0' }, parent : builder });
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'div', 'button', 'textarea', 'list', 'popup' ], parent : body });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'div', 'button', 'textarea', 'list', 'popup' ], parent : body });
             fn.component.create({ name : 'canvas', parent : body });
             fn.component.create({ name : 'attributes-panel', parent : body });
 
