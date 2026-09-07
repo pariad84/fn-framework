@@ -14,7 +14,7 @@
 
             var nav = fn.element.create({
                 tagName : 'div',
-                style : { display : 'flex', gap : '4px', padding : '8px 12px', borderBottom : '1px solid #3a3f4b', flexShrink : '0' },
+                style : { display : 'flex', gap : '4px', padding : '8px 12px', background : '#ffffff', borderBottom : '1px solid #d9dce1', flexShrink : '0' },
                 parent : shell,
             });
 
@@ -27,7 +27,7 @@
                     tagName : 'a',
                     attribute : { href : tab.hash },
                     text : tab.label,
-                    style : { padding : '8px 12px', color : '#8ab4f8', textDecoration : 'none', borderRadius : '6px' },
+                    style : { padding : '8px 12px', color : '#2563eb', textDecoration : 'none', borderRadius : '6px' },
                     parent : nav,
                 });
             });
@@ -68,7 +68,7 @@
             var box = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__component' },
-                style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #3a3f4b' },
+                style : { minHeight : '60px', minWidth : '60px', padding : '4px', border : '1px dashed #d9dce1' },
                 parent : opt.parent,
             });
             fn.util.enableDrop({ el : box });
@@ -109,7 +109,7 @@
 
             var toolbar = fn.element.create({
                 tagName : 'div',
-                style : { display : 'flex', justifyContent : 'flex-end', padding : '8px 12px', borderBottom : '1px solid #3a3f4b', flexShrink : '0' },
+                style : { display : 'flex', justifyContent : 'flex-end', padding : '8px 12px', background : '#ffffff', borderBottom : '1px solid #d9dce1', flexShrink : '0' },
                 parent : builder,
             });
             fn.element.create({
@@ -151,7 +151,7 @@
                 attribute : { class : '__palette' },
                 style : {
                     width : '160px', flexShrink : '0', display : 'flex', flexDirection : 'column',
-                    gap : '8px', padding : '12px', borderRight : '1px solid #3a3f4b', overflowY : 'auto',
+                    gap : '8px', padding : '12px', background : '#ffffff', borderRight : '1px solid #d9dce1', overflowY : 'auto',
                 },
             });
 
@@ -160,7 +160,7 @@
                     tagName : 'div',
                     text : name,
                     attribute : { draggable : 'true' },
-                    style : { padding : '8px 12px', background : '#1e2128', border : '1px solid #3a3f4b', borderRadius : '6px', cursor : 'grab' },
+                    style : { padding : '8px 12px', background : '#ffffff', border : '1px solid #d9dce1', borderRadius : '6px', cursor : 'grab' },
                     event : { dragstart : function(e) { e.dataTransfer.setData('text/plain', name); } },
                     parent : palette,
                 });
@@ -176,7 +176,7 @@
             var canvas = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__canvas' },
-                style : { flex : '1', padding : '16px', overflowY : 'auto', background : '#0f1115' },
+                style : { flex : '1', padding : '16px', overflowY : 'auto', background : '#eef0f3' },
                 event : {
                     // Delegated from the canvas root rather than attached per component, so it
                     // keeps working no matter how deeply text/box end up nested inside each
@@ -191,7 +191,7 @@
                         }
                         canvasEl._.selected = selected || null;
                         if (selected) {
-                            selected.style.outline = '2px solid #8ab4f8';
+                            selected.style.outline = '2px solid #2563eb';
                         }
                         canvasEl.closest('.__builder').querySelector('.__attributes-panel').refresh(selected || null);
                     },
@@ -209,13 +209,13 @@
         var wrap = fn.element.create({ tagName : 'div' });
 
         if (!el) {
-            fn.element.create({ tagName : 'div', text : 'No component selected', style : { color : '#9aa0a6' }, parent : wrap });
+            fn.element.create({ tagName : 'div', text : 'No component selected', style : { color : '#6b7280' }, parent : wrap });
             return wrap;
         }
 
         var styleSelect = fn.element.create({
             tagName : 'select',
-            style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+            style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
             parent : wrap,
         });
         fn.element.create({ tagName : 'option', attribute : { value : '' }, text : 'Apply a stylesheet...', parent : styleSelect });
@@ -244,10 +244,10 @@
         Object.keys(rows).forEach(function(key) {
             var row = fn.element.create({
                 tagName : 'div',
-                style : { display : 'flex', justifyContent : 'space-between', gap : '8px', padding : '4px 0', borderBottom : '1px solid #262a33' },
+                style : { display : 'flex', justifyContent : 'space-between', gap : '8px', padding : '4px 0', borderBottom : '1px solid #e8eaed' },
                 parent : wrap,
             });
-            fn.element.create({ tagName : 'span', text : key, style : { color : '#9aa0a6' }, parent : row });
+            fn.element.create({ tagName : 'span', text : key, style : { color : '#6b7280' }, parent : row });
             fn.element.create({ tagName : 'span', text : String(rows[key]), parent : row });
         });
         return wrap;
@@ -259,7 +259,7 @@
             var panel = fn.element.create({
                 tagName : 'div',
                 attribute : { class : '__attributes-panel' },
-                style : { width : '220px', flexShrink : '0', padding : '12px', borderLeft : '1px solid #3a3f4b', overflowY : 'auto' },
+                style : { width : '220px', flexShrink : '0', padding : '12px', background : '#ffffff', borderLeft : '1px solid #d9dce1', overflowY : 'auto' },
             });
 
             panel.content = fn.element.create({ tagName : 'div', parent : panel });
@@ -288,14 +288,14 @@
             var nameInput = fn.element.create({
                 tagName : 'input',
                 attribute : { type : 'text', placeholder : 'Name' },
-                style : { flex : '0 0 160px', padding : '8px', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+                style : { flex : '0 0 160px', padding : '8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
                 parent : form,
             });
 
             var styleInput = fn.element.create({
                 tagName : 'textarea',
                 attribute : { placeholder : '{ "color": "#fff", "padding": "8px" }' },
-                style : { flex : '1', minHeight : '60px', padding : '8px', font : '13px/1.4 monospace', background : '#1e2128', border : '1px solid #3a3f4b', color : '#e8eaed' },
+                style : { flex : '1', minHeight : '60px', padding : '8px', font : '13px/1.4 monospace', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
                 parent : form,
             });
 
@@ -306,14 +306,14 @@
                 fn.util.selectFlat({ key : 'stylesheets' }).forEach(function(row) {
                     var item = fn.element.create({
                         tagName : 'div',
-                        style : { display : 'flex', alignItems : 'center', gap : '12px', padding : '10px 12px', borderBottom : '1px solid #262a33' },
+                        style : { display : 'flex', alignItems : 'center', gap : '12px', padding : '10px 12px', borderBottom : '1px solid #e8eaed' },
                         parent : list,
                     });
                     fn.element.create({ tagName : 'div', text : row.name, style : { flex : '1' }, parent : item });
                     fn.element.create({
                         tagName : 'div',
                         text : 'Aa',
-                        style : Object.assign({ padding : '4px 10px', border : '1px solid #3a3f4b', borderRadius : '4px' }, row.style),
+                        style : Object.assign({ padding : '4px 10px', border : '1px solid #d9dce1', borderRadius : '4px' }, row.style),
                         parent : item,
                     });
                     fn.element.create({
@@ -390,13 +390,13 @@
                 Array.from(list.children).forEach(function(child) { child.remove(); });
                 var rows = fn.util.selectFlat({ key : 'screens' });
                 if (!rows.length) {
-                    fn.element.create({ tagName : 'div', text : 'No screens saved yet.', style : { color : '#9aa0a6' }, parent : list });
+                    fn.element.create({ tagName : 'div', text : 'No screens saved yet.', style : { color : '#6b7280' }, parent : list });
                     return;
                 }
                 rows.forEach(function(row) {
                     var item = fn.element.create({
                         tagName : 'div',
-                        style : { border : '1px solid #3a3f4b', borderRadius : '6px', padding : '12px' },
+                        style : { background : '#ffffff', border : '1px solid #d9dce1', borderRadius : '6px', padding : '12px' },
                         parent : list,
                     });
                     var header = fn.element.create({
@@ -418,7 +418,7 @@
 
                     var preview = fn.element.create({
                         tagName : 'div',
-                        style : { display : 'flex', flexDirection : 'column', gap : '4px', border : '1px dashed #3a3f4b', padding : '8px', pointerEvents : 'none' },
+                        style : { display : 'flex', flexDirection : 'column', gap : '4px', border : '1px dashed #d9dce1', padding : '8px', pointerEvents : 'none' },
                         parent : item,
                     });
                     row.tree.forEach(function(node) {
