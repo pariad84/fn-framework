@@ -25,7 +25,8 @@ truth for this app, not kept in sync with mini-framework's.
   components (`text`/`span`/`div`/`popup`/`button`/`textarea`/`list`/`form`) ->
   `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
   `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
-- `app.js` -- mounts `shell` into `document.body`. Nothing else.
+- `app.js` -- seeds one sample stylesheet per registered component (see "The app itself" below),
+  then mounts `shell` into `document.body`.
 - `index.html` -- just the four `<script>` tags in load order (fn.js,
   fn.util.js, layout.js, app.js). No inline markup.
 
@@ -50,7 +51,22 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   mockup), and the row list itself is `list` (`column.render` supplies the
   swatch preview and Delete button) -- see "Components" below for both.
   `attributes-panel`'s own style-select reads this same key to apply one onto
-  a selected Builder component.
+  a selected Builder component. `app.js` seeds one sample stylesheet per
+  registered component (`text`, `span`, `div`, `popup`, `button`, `textarea`,
+  `list`, `form`) before mounting `shell`, guarded the same
+  `fn.data.select({ key : ... }).length === 0` way every mini-framework
+  example's `app.js` already seeds its own sample data -- so this tab and the
+  attributes-panel dropdown both already have something to show on a fresh
+  install, even before the user visits Stylesheets once. Each seed's `style`
+  is read back from `sample._.opt.style` on a component actually created for
+  this (detached, no `opt.parent`) rather than a second hand-typed copy of
+  that component's style object, so it can't drift out of sync with the
+  component's real look -- the same field `renderAttributeRows` already
+  reads to show a selected component's own style rows. Deleting one
+  seeded row (or any row) deliberately doesn't bring it back; deleting *all*
+  rows and then reloading the whole page will reseed all 8, since `fn.data`
+  has no separate "already seeded once" flag beyond "is this resource
+  empty" -- an accepted, documented tradeoff, not a bug.
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
   preview render and Delete. Hand-rolled rather than `list` -- each row's
   preview is a full nested render (`renderPreviewNode`'s output), not a flat

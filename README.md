@@ -17,7 +17,9 @@ the directory, e.g. `npx serve .`) to use it.
   on the canvas to reposition it. "Save Screen" stores the current canvas as
   a named screen.
 - **Stylesheets** -- name a set of style properties (as JSON) and reuse it
-  against any Builder component via the attributes panel.
+  against any Builder component via the attributes panel. Starts pre-seeded
+  with one sample stylesheet per Builder component (its own current look),
+  so there's something to pick from on a fresh install.
 - **Screens** -- every screen saved from Builder, each with a live preview
   render. (Loading one back into the Builder for further editing isn't
   built yet.)
@@ -117,3 +119,13 @@ the directory, e.g. `npx serve .`) to use it.
   attributes-panel now run the full height right below the nav bar instead
   of starting below an empty strip of toolbar that was never over them to
   begin with.
+- The Stylesheets tab and attributes-panel's style dropdown started out
+  empty on a fresh install, with nothing to select until a user manually
+  typed one in. `app.js` now seeds one sample stylesheet per registered
+  component, the same `fn.data.select(...).length === 0` guard every
+  mini-framework example's `app.js` already seeds its own sample data with.
+  Rather than hand-copying each component's style object a second time
+  (which would drift the moment either copy changed without the other),
+  each seed is read back from an actually-created instance of that
+  component's own `el._.opt.style` -- the same field the attributes panel
+  itself already reads to show a selected component's style rows.

@@ -609,7 +609,11 @@
 
     // CRUD for a resource this app owns (name + a style object), same fn.data.select/insert/
     // delete verbs every mini-framework example uses. `attributes-panel`'s own style-select
-    // reads this same 'stylesheets' key to apply one onto a selected builder component.
+    // reads this same 'stylesheets' key to apply one onto a selected builder component. app.js
+    // seeds one sample stylesheet per registered component before mounting `shell`, the same
+    // fn.data.select(...).length === 0 guard every mini-framework example's app.js already
+    // seeds its own sample data with -- so this tab, and the dropdown above, already have
+    // something to show on a fresh install instead of starting empty.
     fn.component.layout.set({
         name : 'stylesheets',
         layout : function(opt = {}) {
