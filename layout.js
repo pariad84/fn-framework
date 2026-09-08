@@ -1263,6 +1263,9 @@
                         attribute : { type : 'button' },
                         text : 'Delete',
                         event : { click : function() {
+                            if (!confirm('Delete "' + row.name + '"?')) {
+                                return;
+                            }
                             fn.data.delete({ key : 'screens', id : row.id });
                             list.refresh();
                         } },
