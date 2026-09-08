@@ -1,3 +1,4 @@
+
 # fn-framework
 
 A drag-and-drop page builder built directly on `fn.js`'s seven essentials (see
@@ -57,19 +58,24 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
 
 - **Builder**: a palette (draggable component list) on the left, a canvas
   (drop target) in the middle, an attributes panel on the right. A toolbar
-  above the canvas has Undo, Redo, and "Save Screen" (which serializes the
-  canvas's component tree and stores it under `fn.data`'s `'screens'` key).
-  Any component already on the canvas is itself draggable, so it can be
-  repositioned -- moved to a different container, or back out to the canvas
-  -- the same way a new one from the palette is placed. A selected
-  component's label (for `text`/`span`/`button`/`popup`) is edited via a
-  text field in the attributes panel, not on canvas -- see "Components"
-  below for why. Undo/redo lives on `canvas._.undo`/`._.redo` (two stacks of
-  plain `serializeComponent` trees, reset fresh on every builder mount --
-  see `fn.component._.pushUndo`/`applyUndoState`/`onCanvasChange`): a drop,
-  a reposition, a Delete, and a text-field edit (once, on its first
-  keystroke, not per character) each push the pre-change tree before
-  mutating, and a normal edit after undoing clears the redo stack. Reuses
+  above the canvas has Desktop/Tablet/Mobile buttons (set the canvas's own
+  `width` + `margin: 0 auto` to preview it at a fixed size -- see the
+  toolbar's own comment for why `width`, not just `max-width`, is needed
+  once a cross-axis `margin: auto` is involved; nothing here is persisted,
+  it resets to Desktop on every builder mount), Undo, Redo, and "Save
+  Screen" (which serializes the canvas's component tree and stores it under
+  `fn.data`'s `'screens'` key). Any component already on the canvas is
+  itself draggable, so it can be repositioned -- moved to a different
+  container, or back out to the canvas -- the same way a new one from the
+  palette is placed. A selected component's label (for `text`/`span`/
+  `button`/`popup`) is edited via a text field in the attributes panel, not
+  on canvas -- see "Components" below for why. Undo/redo lives on
+  `canvas._.undo`/`._.redo` (two stacks of plain `serializeComponent` trees,
+  reset fresh on every builder mount -- see
+  `fn.component._.pushUndo`/`applyUndoState`/`onCanvasChange`): a drop, a
+  reposition, a Delete, and a text-field edit (once, on its first keystroke,
+  not per character) each push the pre-change tree before mutating, and a
+  normal edit after undoing clears the redo stack. Reuses
   `serializeComponent`/`deserializeComponent` rather than snapshotting raw
   DOM (`outerHTML`/`cloneNode`), since that would lose every component's own
   JS-attached listeners (`enableDrag`'s `dragstart`/`dragend`, `link`'s
@@ -116,12 +122,13 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   apply the 'list' stylesheet to itself (see the `list` layout's own comment
   for why that would otherwise be a real, visible bug).
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
-  preview render, Load, and Delete. Hand-rolled rather than `list` -- each
-  row's preview is a full nested render (`renderPreviewNode`'s output), not a
-  flat set of columns `list`'s table-row model can represent. Load rebuilds
-  the saved tree as live, editable canvas components via
-  `fn.component._.deserializeComponent` (the inverse of `serializeComponent`)
-  after navigating to `#/` and clearing the canvas.
+  preview render, Load, and Delete (with a confirmation prompt). Hand-rolled
+  rather than `list` -- each row's preview is a full nested render
+  (`renderPreviewNode`'s output), not a flat set of columns `list`'s
+  table-row model can represent. Load rebuilds the saved tree as live,
+  editable canvas components via `fn.component._.deserializeComponent` (the
+  inverse of `serializeComponent`) after navigating to `#/` and clearing the
+  canvas.
 
 ## Components (draggable canvas building blocks)
 
@@ -197,28 +204,30 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
 - `form` -- `list`'s single-record counterpart: same `opt.columns` shape,
   but `opt.data` is one plain object (not an array) and each field reads
   `column.form` instead of `column.list` (a row-per-object array's per-cell
-  style has no meaning laid out top-to-bottom). `column.form.tagName`
-  overrides the field's own element (defaults to `<input>`, `attribute.type`
-  from `column.form` defaulting to `'text'`; `'textarea'` gets a multi-line
-  field instead, its value read/written as text content rather than a
-  `value` attribute -- see Stylesheets' own "Style (JSON)" field). Readonly
-  and `pointer-events: none` by default -- an `<input>`/`<textarea>` is
-  natively focusable/selectable the same way `contenteditable` was (see
-  below), so without that it would reopen the exact drag-vs-select conflict
-  removing `contenteditable` was fixing. Pass `opt.editable: true` to opt out
-  of both and get a real, typable form instead; a canvas-dropped form never
-  should, so that stays the default. No current caller in this app uses
-  `opt.editable` (Stylesheets' own "add a stylesheet" row, its one past use,
-  was removed once every component got a fixed one-per-type stylesheet
-  instead -- see "The app itself" above), but it's kept as a real, working
-  capability rather than stripped out along with that one caller. An
-  editable form's typed values would live only in its own DOM (each field
-  carries `attribute.name = column.name`; read them back via
-  `formEl.querySelector('[name="..."]').value`) -- `el.data` stays whatever
-  `opt.data` was at creation, so `serializeComponent` would save stale data
-  for a form saved mid-edit; out of scope since nothing drags an editable
-  form onto the canvas. `el.data`/`el.columns` are stashed on the element
-  the same way `list` stashes `el.datas`/`el.columns`.
+  style has no meaning laid out top-to-bottom). Falls back to a two-field
+  sample when dropped from the palette with no data of its own, the same
+  reason `list` falls back to sample rows instead of rendering an empty
+  table. `column.form.tagName` overrides the field's own element (defaults
+  to `<input>`, `attribute.type` from `column.form` defaulting to `'text'`;
+  `'textarea'` gets a multi-line field instead, its value read/written as
+  text content rather than a `value` attribute -- see Stylesheets' own
+  "Style (JSON)" field). Readonly and `pointer-events: none` by default --
+  an `<input>`/`<textarea>` is natively focusable/selectable the same way
+  `contenteditable` was (see below), so without that it would reopen the
+  exact drag-vs-select conflict removing `contenteditable` was fixing. Pass
+  `opt.editable: true` to opt out of both and get a real, typable form
+  instead; a canvas-dropped form never should, so that stays the default.
+  No current caller in this app uses `opt.editable` (Stylesheets' own "add a
+  stylesheet" row, its one past use, was removed once every component got a
+  fixed one-per-type stylesheet instead -- see "The app itself" above), but
+  it's kept as a real, working capability rather than stripped out along
+  with that one caller. An editable form's typed values would live only in
+  its own DOM (each field carries `attribute.name = column.name`; read them
+  back via `formEl.querySelector('[name="..."]').value`) -- `el.data` stays
+  whatever `opt.data` was at creation, so `serializeComponent` would save
+  stale data for a form saved mid-edit; out of scope since nothing drags an
+  editable form onto the canvas. `el.data`/`el.columns` are stashed on the
+  element the same way `list` stashes `el.datas`/`el.columns`.
 - `div`, `popup` -- containers. Both set `el.content` to wherever their
   children/drops actually go (`div.content = div` itself; `popup.content` is
   an inner div, since popup's header isn't a drop target). **Any new
