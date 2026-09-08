@@ -39,10 +39,12 @@ truth for this app, not kept in sync with mini-framework's.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
   components (`text`/`span`/`h1`/`h2`/`h3`/`link`/`div`/`popup`/`image`/
   `button`/`input`/`textarea`/`checkbox`/`radio`/`list`/`form`) ->
-  `serializeComponent` -> undo/redo helpers (`serializeCanvas`/`pushUndo`/
-  `onCanvasChange`/`applyUndoState`) -> `builder`/`palette`/`canvas`/
-  `attributes-panel` -> `stylesheets` tab -> `renderPreviewNode` ->
-  `deserializeComponent` -> `screens` tab.
+  `serializeComponent` -> undo/redo + multi-select helpers (`serializeCanvas`/
+  `pushUndo`/`onCanvasChange`/`applyUndoState`/`undo`/`redo`/
+  `clearMultiSelection`/`updateMultiSelectionUI`) -> `builder`/`palette`/
+  `canvas`/the keyboard-shortcuts `keydown` listener/`attributes-panel` ->
+  `stylesheets` tab -> `renderPreviewNode` -> `deserializeComponent` ->
+  `screens` tab.
 - `app.js` -- seeds one sample stylesheet per registered component (see "The app itself" below),
   then mounts `shell` into `document.body`.
 - `index.html` -- just the four `<script>` tags in load order (fn.js,
@@ -71,7 +73,26 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   `serializeComponent`/`deserializeComponent` rather than snapshotting raw
   DOM (`outerHTML`/`cloneNode`), since that would lose every component's own
   JS-attached listeners (`enableDrag`'s `dragstart`/`dragend`, `link`'s
-  `click`) that only `fn.component.create` wires back up.
+  `click`) that only `fn.component.create` wires back up. Ctrl/Cmd+click
+  toggles a component into/out of `canvas._.multiSelected` (a `Set`),
+  mutually exclusive with the normal single-select (`canvas._.selected`) --
+  a plain click or right-click always clears any active multi-selection
+  first (`fn.component._.clearMultiSelection`), so only one selection model
+  is ever active. `fn.component._.updateMultiSelectionUI` shows a plain "N
+  components selected" in the attributes panel while multi-selected, since
+  `renderAttributeRows` only ever renders one component's own attributes. A
+  module-scope `keydown` listener (not one per canvas mount, which would
+  leak across route navigations -- it looks up the current canvas via
+  `document.querySelector('.__canvas')` on every keypress instead, the same
+  lookup Screens' Load button already uses) drives Delete/Backspace (removes
+  the current selection), Ctrl/Cmd+C (serializes it into
+  `fn.component._.clipboard`, a plain in-memory array -- there's no server
+  or other tab to share a real OS clipboard with), Ctrl/Cmd+V (pastes onto
+  the canvas root and multi-selects what it just pasted), and Ctrl/Cmd+Z /
+  Ctrl/Cmd+Shift+Z (the same `fn.component._.undo`/`redo` the toolbar
+  buttons call). Skipped entirely while focus is in a real text input/
+  textarea, so typing into attributes-panel's text field or Stylesheets'
+  JSON field is never hijacked.
 - **Stylesheets**: exactly one row per registered component (name + a style
   object), seeded once by `app.js` before mounting `shell` (guarded by
   `fn.data.select({ key : ... }).length === 0`, the same way every
