@@ -591,7 +591,55 @@
             .filter(function(child) { return child.classList.contains('__component'); })
             .forEach(function(child) { child.remove(); });
         tree.forEach(function(node) { fn.component._.deserializeComponent(node, canvasEl); });
+        // Every element the old tree's multiSelected/selected referenced just got removed and
+        // rebuilt from scratch above -- clearing rather than trying to remap those references
+        // onto the freshly created ones, since nothing here tracks which new element corresponds
+        // to which old one.
+        canvasEl._.multiSelected.clear();
         fn.component._.selectComponent(canvasEl, null);
+    };
+
+    fn.component._.undo = function(canvasEl) {
+        if (!canvasEl._.undo.length) {
+            return;
+        }
+        canvasEl._.redo.push(fn.component._.serializeCanvas(canvasEl));
+        fn.component._.applyUndoState(canvasEl, canvasEl._.undo.pop());
+    };
+
+    fn.component._.redo = function(canvasEl) {
+        if (!canvasEl._.redo.length) {
+            return;
+        }
+        canvasEl._.undo.push(fn.component._.serializeCanvas(canvasEl));
+        fn.component._.applyUndoState(canvasEl, canvasEl._.redo.pop());
+    };
+
+    // Shared by canvas's own click/contextmenu handlers below (a plain click or a right-click
+    // always drops back to single-select mode first) -- the two selection models are mutually
+    // exclusive, never layered, so there's only ever one to reason about.
+    fn.component._.clearMultiSelection = function(canvasEl) {
+        canvasEl._.multiSelected.forEach(function(el) { el.style.outline = ''; });
+        canvasEl._.multiSelected.clear();
+    };
+
+    // Re-renders the attributes panel for the current multi-selection count, bypassing
+    // renderAttributeRows entirely (which only ever shows one component's own attributes) --
+    // called after every multiSelected change; falls back to the normal single-selection view
+    // once the set empties back out.
+    fn.component._.updateMultiSelectionUI = function(canvasEl) {
+        var panel = canvasEl.closest('.__builder').querySelector('.__attributes-panel');
+        if (!canvasEl._.multiSelected.size) {
+            panel.refresh(canvasEl._.selected || null);
+            return;
+        }
+        Array.from(panel.content.children).forEach(function(child) { child.remove(); });
+        fn.element.create({
+            tagName : 'div',
+            text : canvasEl._.multiSelected.size + ' components selected',
+            style : { color : '#6b7280' },
+            parent : panel.content,
+        });
     };
 
     // Referenced by canvas/attributes-panel below via .closest('.__builder'), the same
@@ -631,12 +679,7 @@
                 text : 'Undo',
                 style : { padding : '6px 14px' },
                 event : { click : function(e) {
-                    var canvas = e.target.closest('.__builder').querySelector('.__canvas');
-                    if (!canvas._.undo.length) {
-                        return;
-                    }
-                    canvas._.redo.push(fn.component._.serializeCanvas(canvas));
-                    fn.component._.applyUndoState(canvas, canvas._.undo.pop());
+                    fn.component._.undo(e.target.closest('.__builder').querySelector('.__canvas'));
                 } },
                 parent : toolbar,
             });
@@ -646,12 +689,7 @@
                 text : 'Redo',
                 style : { padding : '6px 14px' },
                 event : { click : function(e) {
-                    var canvas = e.target.closest('.__builder').querySelector('.__canvas');
-                    if (!canvas._.redo.length) {
-                        return;
-                    }
-                    canvas._.undo.push(fn.component._.serializeCanvas(canvas));
-                    fn.component._.applyUndoState(canvas, canvas._.redo.pop());
+                    fn.component._.redo(e.target.closest('.__builder').querySelector('.__canvas'));
                 } },
                 parent : toolbar,
             });
@@ -758,6 +796,10 @@
                     if (opt.canvas._.selected === opt.target) {
                         fn.component._.selectComponent(opt.canvas, null);
                     }
+                    if (opt.canvas._.multiSelected.has(opt.target)) {
+                        opt.canvas._.multiSelected.delete(opt.target);
+                        fn.component._.updateMultiSelectionUI(opt.canvas);
+                    }
                     opt.target.remove();
                     menu.remove();
                 },
@@ -784,8 +826,34 @@
                     // other. .closest('.__component') starting from e.target always resolves to
                     // the innermost component under the click, since e.target is already that
                     // deepest element (or one of its own children, for text's own contents).
+                    // Ctrl/Cmd+click toggles multi-select instead of the normal single-select --
+                    // the two are mutually exclusive (a plain click always clears any active
+                    // multi-selection first) rather than layered, so there's only ever one
+                    // selection model active at a time to reason about.
                     click : function(e) {
-                        fn.component._.selectComponent(e.currentTarget, e.target.closest('.__component'));
+                        var canvasEl = e.currentTarget;
+                        var target = e.target.closest('.__component');
+                        if (e.ctrlKey || e.metaKey) {
+                            if (!target) {
+                                return;
+                            }
+                            if (canvasEl._.selected) {
+                                canvasEl._.selected.style.outline = '';
+                                canvasEl._.selected = null;
+                            }
+                            if (canvasEl._.multiSelected.has(target)) {
+                                canvasEl._.multiSelected.delete(target);
+                                target.style.outline = '';
+                            } else {
+                                fn.component._.applyTypeStylesheet(target, target._.name);
+                                canvasEl._.multiSelected.add(target);
+                                target.style.outline = '2px solid #2563eb';
+                            }
+                            fn.component._.updateMultiSelectionUI(canvasEl);
+                            return;
+                        }
+                        fn.component._.clearMultiSelection(canvasEl);
+                        fn.component._.selectComponent(canvasEl, target);
                     },
                     contextmenu : function(e) {
                         var target = e.target.closest('.__component');
@@ -793,6 +861,7 @@
                             return;
                         }
                         e.preventDefault();
+                        fn.component._.clearMultiSelection(e.currentTarget);
                         fn.component._.selectComponent(e.currentTarget, target);
                         fn.component._.showContextMenu({ x : e.clientX, y : e.clientY, target : target, canvas : e.currentTarget });
                     },
@@ -800,9 +869,73 @@
             });
             canvas._.undo = [];
             canvas._.redo = [];
+            canvas._.multiSelected = new Set();
             fn.util.enableDrop({ el : canvas, dropOutline : '3px dashed #2563eb', onChange : function() { fn.component._.onCanvasChange(canvas); } });
             return canvas;
         },
+    });
+
+    // Delete/Backspace removes the current selection (single- or multi-select), Ctrl/Cmd+C
+    // copies it into fn.component._.clipboard (a plain in-memory array of serializeComponent
+    // trees, not the real OS clipboard -- there's no server or other tab for this app to share
+    // one with, so a real clipboard API would add nothing), Ctrl/Cmd+V pastes it back onto the
+    // canvas root and selects what it just pasted, and Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z drive the
+    // same undo/redo the toolbar buttons do. One listener at module scope rather than one per
+    // canvas mount -- attaching a fresh one on every builder remount (a route navigation) would
+    // leak, so this looks up the current canvas via document.querySelector('.__canvas') on every
+    // keypress instead (the same lookup Screens' own Load button already uses) and does nothing
+    // when there isn't one (Stylesheets/Screens tabs). Skipped entirely while focus is in a real
+    // text input/textarea (attributes-panel's text field, Stylesheets' JSON field), so typing
+    // into one, or a real copy/paste inside one, is never hijacked.
+    document.addEventListener('keydown', function(e) {
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') {
+            return;
+        }
+        var canvas = document.querySelector('.__canvas');
+        if (!canvas) {
+            return;
+        }
+        var selection = canvas._.multiSelected.size ? Array.from(canvas._.multiSelected)
+            : canvas._.selected ? [ canvas._.selected ] : [];
+
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selection.length) {
+            e.preventDefault();
+            fn.component._.pushUndo(canvas);
+            selection.forEach(function(el) { el.remove(); });
+            fn.component._.clearMultiSelection(canvas);
+            fn.component._.selectComponent(canvas, null);
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selection.length) {
+            e.preventDefault();
+            fn.component._.clipboard = selection.map(fn.component._.serializeComponent);
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && fn.component._.clipboard) {
+            e.preventDefault();
+            fn.component._.pushUndo(canvas);
+            fn.component._.selectComponent(canvas, null);
+            fn.component._.clearMultiSelection(canvas);
+            fn.component._.clipboard.forEach(function(node) {
+                var el = fn.component._.deserializeComponent(node, canvas);
+                canvas._.multiSelected.add(el);
+                el.style.outline = '2px solid #2563eb';
+            });
+            fn.component._.updateMultiSelectionUI(canvas);
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                fn.component._.redo(canvas);
+            } else {
+                fn.component._.undo(canvas);
+            }
+        }
     });
 
     // Same refresh-in-place wrapper shape used throughout this file (e.g. `screens`' own list
