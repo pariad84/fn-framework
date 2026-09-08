@@ -22,9 +22,10 @@ the directory, e.g. `npx serve .`) to use it.
   on the canvas to reposition it. Ctrl/Cmd+click multi-selects components;
   Delete/Backspace, Ctrl/Cmd+C, Ctrl/Cmd+V, and Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z
   work on the current selection. Undo/Redo step back and forward through
-  drops, repositions, deletes, and text edits. "Save Screen" stores the
-  current canvas as a named screen, asking to confirm before overwriting one
-  that already has that name.
+  drops, repositions, deletes, and text edits. Desktop/Tablet/Mobile buttons
+  preview the canvas at a fixed width. "Save Screen" stores the current
+  canvas as a named screen, asking to confirm before overwriting one that
+  already has that name.
 - **Stylesheets** -- exactly one row per Builder component (its style, as
   JSON). Edit and Save a row to change how every instance of that component
   looks; rows can't be added or deleted, and a row's name is fixed to its
@@ -272,3 +273,13 @@ the directory, e.g. `npx serve .`) to use it.
   name; if found, confirms before `fn.data.update`ing that row instead of
   inserting a second one, the same insert-or-update-by-name shape a real
   save would need.
+- The canvas always filled the full width of its column, with no way to
+  preview a layout at a phone/tablet size. Added Desktop/Tablet/Mobile
+  toolbar buttons that set the canvas's own `width` (plus `margin: 0 auto`
+  to center it once it's narrower than the column). Setting only `max-width`
+  first didn't work: with a cross-axis `margin: auto` present, a flex item
+  no longer stretches to fill the container (auto margins override the
+  container's default stretch alignment), so without an explicit `width` it
+  fell back to shrinking to its own content size instead of actually
+  reaching 768px/375px. Nothing here is persisted -- it resets to Desktop on
+  every builder mount, like the rest of this toolbar's state already does.
