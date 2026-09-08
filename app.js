@@ -11,7 +11,7 @@
     // hand-copying each style object a second time here, which would drift out of sync with the
     // component's real look the moment either copy changed without the other.
     if (fn.data.select({ key : 'stylesheets' }).length === 0) {
-        [ 'text', 'span', 'h1', 'h2', 'h3', 'div', 'popup', 'button', 'textarea', 'list', 'form' ].forEach(function(name) {
+        [ 'text', 'span', 'h1', 'h2', 'h3', 'link', 'div', 'popup', 'image', 'button', 'input', 'textarea', 'checkbox', 'radio', 'list', 'form' ].forEach(function(name) {
             var sample = fn.component.create({ name : name });
             fn.data.insert({ key : 'stylesheets', data : { name : name, style : sample._.opt.style || {} } });
         });

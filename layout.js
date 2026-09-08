@@ -154,6 +154,28 @@
         },
     });
 
+    // A real <a> tag, otherwise the same plain text-leaf shape as text/span/h1-h3 above. href is
+    // fixed at '#' since nothing on this canvas actually navigates (the same "mockup, not
+    // runtime" idea as button's click doing nothing) -- preventDefault stops that '#' from
+    // jumping the whole builder page to its top on click, the one real side effect a bare anchor
+    // tag would otherwise have that none of this app's other components do.
+    fn.component.layout.set({
+        name : 'link',
+        layout : function(opt) {
+            var link = fn.element.create({
+                tagName : 'a',
+                attribute : { class : '__component', href : '#' },
+                text : (opt.data && opt.data.text) || 'Link',
+                style : { padding : '4px', minWidth : '20px', display : 'inline-block', color : '#2563eb', outline : 'none' },
+                event : { click : function(e) { e.preventDefault(); } },
+                parent : opt.parent,
+            });
+            fn.component._.applyTypeStylesheet(link, 'link');
+            fn.util.enableDrag({ el : link });
+            return link;
+        },
+    });
+
     fn.component.layout.set({
         name : 'div',
         layout : function(opt) {
@@ -216,6 +238,32 @@
         },
     });
 
+    // A real <img>. A canvas mockup has no actual asset to point at, so src defaults to a small
+    // inline SVG data URI (a plain gray "Image" placeholder built here, not fetched or guessed
+    // from anywhere) -- pass opt.data.src for a real one. Like list/form's own datas/columns,
+    // the resolved src/alt are stashed directly on the element rather than read back from the
+    // rendered <img>'s own .src/.alt (see list's comment for why: reading the live DOM property
+    // back is the established idiom here, not a hand roll of a second copy); no on-canvas or
+    // attributes-panel editing, fixed at drop time the same way list/form's data is.
+    fn.component.layout.set({
+        name : 'image',
+        layout : function(opt) {
+            var placeholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='120'%3E%3Crect width='100%25' height='100%25' fill='%23e8eaed'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='14' fill='%236b7280' text-anchor='middle' dominant-baseline='middle'%3EImage%3C/text%3E%3C/svg%3E";
+            var src = (opt.data && opt.data.src) || placeholder;
+            var alt = (opt.data && opt.data.alt) || 'Image';
+            var image = fn.element.create({
+                tagName : 'img',
+                attribute : { class : '__component', src : src, alt : alt },
+                style : { width : '160px', height : '120px', objectFit : 'cover', border : '1px solid #d9dce1' },
+                parent : opt.parent,
+            });
+            image.data = { src : src, alt : alt };
+            fn.component._.applyTypeStylesheet(image, 'image');
+            fn.util.enableDrag({ el : image });
+            return image;
+        },
+    });
+
     fn.component.layout.set({
         name : 'button',
         layout : function(opt) {
@@ -247,6 +295,80 @@
             fn.component._.applyTypeStylesheet(textarea, 'textarea');
             fn.util.enableDrag({ el : textarea });
             return textarea;
+        },
+    });
+
+    // A real standalone <input type="text">. Wrapped in its own div rather than being the
+    // draggable root itself, the same reason form's own fields need a wrapper: readonly +
+    // pointer-events:none on the input keeps it from reopening the drag-vs-select conflict (a
+    // bare focusable input is exactly as ambiguous a drag-start point as contenteditable was --
+    // see the text/span/button note above), but pointer-events:none on an element also stops it
+    // from ever receiving the mousedown that would start its own drag -- so enableDrag has to
+    // live one level up, on a wrapper the input's own none doesn't apply to (again, exactly
+    // form's own trick, just for one bare field instead of several). Fixed at drop time -- no
+    // attributes-panel editing -- the same as textarea above.
+    fn.component.layout.set({
+        name : 'input',
+        layout : function(opt) {
+            var wrap = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { display : 'inline-block', padding : '4px' },
+                parent : opt.parent,
+            });
+            fn.element.create({
+                tagName : 'input',
+                attribute : { type : 'text', value : (opt.data && opt.data.text) || 'Input', readonly : 'true' },
+                style : { padding : '6px 8px', font : 'inherit', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                parent : wrap,
+            });
+            fn.component._.applyTypeStylesheet(wrap, 'input');
+            fn.util.enableDrag({ el : wrap });
+            return wrap;
+        },
+    });
+
+    // Real <input type="checkbox">/<input type="radio">, each with its own label text in a
+    // '.__option-label' span (not the wrapper's own textContent, the same reason popup's title
+    // lives in its own '.__popup-title' rather than the popup's textContent -- see
+    // renderAttributeRows' textTarget below). pointer-events:none on the control itself is the
+    // only way to keep it static here: unlike form's text/textarea fields, checkbox/radio ignore
+    // the `readonly` attribute entirely per the HTML spec, so none is the one thing that stops a
+    // click from actually toggling it. A plain div wrapper, not a real <label>, so selecting it
+    // never triggers a browser's own implicit label-click-forwards-to-control behavior -- this
+    // canvas mockup has no reason to actually flip a checkbox just because it got clicked to
+    // select it, any more than clicking button/link/popup's close here does anything real.
+    fn.component.layout.set({
+        name : 'checkbox',
+        layout : function(opt) {
+            var wrap = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { display : 'inline-flex', alignItems : 'center', gap : '6px', padding : '4px' },
+                parent : opt.parent,
+            });
+            fn.element.create({ tagName : 'input', attribute : { type : 'checkbox' }, style : { pointerEvents : 'none' }, parent : wrap });
+            fn.element.create({ tagName : 'span', attribute : { class : '__option-label' }, text : (opt.data && opt.data.text) || 'Checkbox', parent : wrap });
+            fn.component._.applyTypeStylesheet(wrap, 'checkbox');
+            fn.util.enableDrag({ el : wrap });
+            return wrap;
+        },
+    });
+
+    fn.component.layout.set({
+        name : 'radio',
+        layout : function(opt) {
+            var wrap = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { display : 'inline-flex', alignItems : 'center', gap : '6px', padding : '4px' },
+                parent : opt.parent,
+            });
+            fn.element.create({ tagName : 'input', attribute : { type : 'radio' }, style : { pointerEvents : 'none' }, parent : wrap });
+            fn.element.create({ tagName : 'span', attribute : { class : '__option-label' }, text : (opt.data && opt.data.text) || 'Radio', parent : wrap });
+            fn.component._.applyTypeStylesheet(wrap, 'radio');
+            fn.util.enableDrag({ el : wrap });
+            return wrap;
         },
     });
 
@@ -400,12 +522,14 @@
     // comment above) walks el.content's children; 'list'/'form' read back the el.datas/el.columns
     // or el.data/el.columns those layouts already stashed on themselves (see each layout's own
     // comment for why those, and not el._.opt or rendered DOM text, are the source of truth
-    // here); 'textarea' reads its own .value (a real form control's live value, unlike a plain
-    // div/span/button, never shows up in .textContent); anything else (text/span/button) is read
-    // as its own textContent, kept current by attributes-panel's text field (see
-    // renderAttributeRows) rather than by editing on canvas -- see that field's comment for why.
-    // Reads all of these live rather than the original opt.data, since editing only ever changes
-    // the DOM/value, never that original opt.
+    // here); 'image' likewise reads its stashed el.data; 'textarea'/'input' read their own live
+    // .value (a real form control's live value, unlike a plain div/span/button, never shows up in
+    // .textContent); 'checkbox'/'radio' read their own '.__option-label' span's textContent, not
+    // the wrapper's own (which would also include the empty input); anything else (text/span/
+    // h1-h3/link/button) is read as its own textContent, kept current by attributes-panel's text
+    // field (see renderAttributeRows) rather than by editing on canvas -- see that field's
+    // comment for why. Reads all of these live rather than the original opt.data, since editing
+    // only ever changes the DOM/value, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -419,8 +543,14 @@
             node.data = { datas : el.datas, columns : el.columns };
         } else if (el._.name === 'form') {
             node.data = { data : el.data, columns : el.columns };
+        } else if (el._.name === 'image') {
+            node.data = { src : el.data.src, alt : el.data.alt };
         } else if (el._.name === 'textarea') {
             node.data = { text : el.value };
+        } else if (el._.name === 'input') {
+            node.data = { text : el.querySelector('input').value };
+        } else if (el._.name === 'checkbox' || el._.name === 'radio') {
+            node.data = { text : el.querySelector('.__option-label').textContent };
         } else {
             node.data = { text : el.textContent };
         }
@@ -441,7 +571,7 @@
                 style : { display : 'flex', flex : '1', minHeight : '0' },
             });
 
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'h1', 'h2', 'h3', 'div', 'button', 'textarea', 'list', 'form', 'popup' ], parent : builder });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'h1', 'h2', 'h3', 'link', 'div', 'popup', 'image', 'button', 'input', 'textarea', 'checkbox', 'radio', 'list', 'form' ], parent : builder });
 
             // The toolbar sits only above canvas, not the full builder width -- wrapping canvas
             // in its own flex column (rather than putting the toolbar back at the builder level)
@@ -629,7 +759,8 @@
         // them on canvas. popup's title lives in a child (.__popup-title), not its own
         // textContent, since a popup's textContent would also include its children's text.
         var textTarget = el._.name === 'popup' ? el.querySelector('.__popup-title')
-            : (!el.content && el._.name !== 'list' && el._.name !== 'form' && el._.name !== 'textarea') ? el
+            : (el._.name === 'checkbox' || el._.name === 'radio') ? el.querySelector('.__option-label')
+            : (!el.content && el._.name !== 'list' && el._.name !== 'form' && el._.name !== 'textarea' && el._.name !== 'input' && el._.name !== 'image') ? el
             : null;
         if (textTarget) {
             var textInput = fn.element.create({
@@ -762,6 +893,87 @@
         },
     });
 
+    // Read-only rendering of one saved node -- deliberately plain elements rather than
+    // fn.component.create({name: node.type, ...}), so a preview card doesn't also pick up
+    // div/popup/canvas's own drop handling or any component's own draggability.
+    fn.component._.renderPreviewNode = function(node) {
+        if (node.type === 'list') {
+            var table = fn.element.create({ tagName : 'table', style : Object.assign({ borderCollapse : 'collapse' }, node.style) });
+            var headerRow = fn.element.create({ tagName : 'tr', parent : table });
+            node.data.columns.forEach(function(column) {
+                fn.element.create({
+                    tagName : 'th',
+                    text : fn.component._.columnLabel(column),
+                    style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
+                    parent : headerRow,
+                });
+            });
+            node.data.datas.forEach(function(data) {
+                var tr = fn.element.create({ tagName : 'tr', parent : table });
+                node.data.columns.forEach(function(column) {
+                    fn.element.create({
+                        tagName : 'td',
+                        text : data[column.name],
+                        style : Object.assign({ border : '1px solid #d9dce1', padding : '4px 8px', textAlign : 'left' }, column.list),
+                        parent : tr,
+                    });
+                });
+            });
+            return table;
+        }
+
+        if (node.type === 'form') {
+            var form = fn.element.create({ tagName : 'div', style : Object.assign({ display : 'flex', flexDirection : 'column', gap : '10px', padding : '10px', border : '1px dashed #d9dce1', minWidth : '200px' }, node.style) });
+            node.data.columns.forEach(function(column) {
+                var field = fn.element.create({ tagName : 'div', style : { display : 'flex', flexDirection : 'column', gap : '4px' }, parent : form });
+                fn.element.create({ tagName : 'label', text : fn.component._.columnLabel(column), style : { color : '#6b7280', fontSize : '13px' }, parent : field });
+                var fieldForm = Object.assign({}, column.form);
+                var tagName = fieldForm.tagName || 'input';
+                delete fieldForm.tagName;
+                fn.element.create({
+                    tagName : tagName,
+                    attribute : Object.assign(
+                        tagName === 'input' ? { type : 'text', value : node.data.data[column.name] || '' } : {},
+                        { readonly : 'true' },
+                        fieldForm
+                    ),
+                    text : tagName === 'textarea' ? (node.data.data[column.name] || '') : undefined,
+                    style : { padding : '6px 8px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', font : 'inherit', pointerEvents : 'none' },
+                    parent : field,
+                });
+            });
+            return form;
+        }
+
+        if (node.type === 'image') {
+            return fn.element.create({
+                tagName : 'img',
+                attribute : { src : node.data.src, alt : node.data.alt },
+                style : Object.assign({ objectFit : 'cover', border : '1px solid #d9dce1' }, node.style),
+            });
+        }
+
+        if (node.type === 'checkbox' || node.type === 'radio') {
+            var optionWrap = fn.element.create({ tagName : 'div', style : Object.assign({ display : 'inline-flex', alignItems : 'center', gap : '6px', padding : '4px' }, node.style) });
+            fn.element.create({ tagName : 'input', attribute : { type : node.type }, style : { pointerEvents : 'none' }, parent : optionWrap });
+            fn.element.create({ tagName : 'span', text : node.data.text, parent : optionWrap });
+            return optionWrap;
+        }
+
+        var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
+        if (node.children) {
+            if (node.type === 'popup') {
+                fn.element.create({ tagName : 'div', text : node.data.title, style : { fontWeight : '600' }, parent : el });
+            }
+            node.children.forEach(function(child) {
+                el.appendChild(fn.component._.renderPreviewNode(child));
+            });
+        } else {
+            el.textContent = node.data.text;
+        }
+        return el;
+    };
+
     // Inverse of serializeComponent -- rebuilds a live, editable canvas component from a saved
     // node, so Screens' Load button can put it back on the Builder canvas. Applies node.style
     // directly (may differ from the type's current stylesheet if it was edited since saving).
@@ -771,6 +983,8 @@
             el = fn.component.create({ name : 'list', datas : node.data.datas, columns : node.data.columns, parent : parent });
         } else if (node.type === 'form') {
             el = fn.component.create({ name : 'form', data : node.data.data, columns : node.data.columns, parent : parent });
+        } else if (node.type === 'image') {
+            el = fn.component.create({ name : 'image', data : { src : node.data.src, alt : node.data.alt }, parent : parent });
         } else if (node.children) {
             el = fn.component.create({ name : node.type, data : node.type === 'popup' ? { title : node.data.title } : {}, parent : parent });
             node.children.forEach(function(child) {
