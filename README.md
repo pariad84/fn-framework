@@ -23,7 +23,8 @@ the directory, e.g. `npx serve .`) to use it.
   Delete/Backspace, Ctrl/Cmd+C, Ctrl/Cmd+V, and Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z
   work on the current selection. Undo/Redo step back and forward through
   drops, repositions, deletes, and text edits. "Save Screen" stores the
-  current canvas as a named screen.
+  current canvas as a named screen, asking to confirm before overwriting one
+  that already has that name.
 - **Stylesheets** -- exactly one row per Builder component (its style, as
   JSON). Edit and Save a row to change how every instance of that component
   looks; rows can't be added or deleted, and a row's name is fixed to its
@@ -264,3 +265,10 @@ the directory, e.g. `npx serve .`) to use it.
 - Screens' own Delete deleted immediately on click, with no way back --
   added a `confirm()` guard, the same plain-dialog convention Save Screen's
   `prompt()`/`alert()` already use.
+- Save Screen took a name via `prompt()` and always `fn.data.insert`ed a new
+  row, even when one by that name already existed -- silently building up
+  duplicates with no way to update a screen in place. Now checks
+  `fn.util.selectFlat({ key: 'screens' })` for an existing row with the same
+  name; if found, confirms before `fn.data.update`ing that row instead of
+  inserting a second one, the same insert-or-update-by-name shape a real
+  save would need.
