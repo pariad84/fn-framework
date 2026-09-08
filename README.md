@@ -8,9 +8,9 @@ the directory, e.g. `npx serve .`) to use it.
 
 ## Three tabs
 
-- **Builder** -- drag components (`text`, `span`, `h1`, `h2`, `h3`, `div`,
-  `popup`, `button`, `textarea`, `list`, `form`) from the left palette onto
-  the canvas. Whatever you're currently dragging over -- the canvas, a
+- **Builder** -- drag components (`text`, `span`, `h1`, `h2`, `h3`, `link`,
+  `div`, `popup`, `image`, `button`, `input`, `textarea`, `checkbox`,
+  `radio`, `list`, `form`) from the left palette onto the canvas. Whatever you're currently dragging over -- the canvas, a
   `div`, or a `popup`'s content area -- highlights with a dashed blue
   outline, so it's always clear where a drop will land. Every component
   automatically looks like its
@@ -26,8 +26,8 @@ the directory, e.g. `npx serve .`) to use it.
   looks; rows can't be added or deleted, and a row's name is fixed to its
   component's, since the two have to match.
 - **Screens** -- every screen saved from Builder, each with a live preview
-  render. (Loading one back into the Builder for further editing isn't
-  built yet.)
+  render, Load (rebuilds it as live, editable components back on the Builder
+  canvas), and Delete.
 
 ## Design history
 
@@ -201,3 +201,30 @@ the directory, e.g. `npx serve .`) to use it.
   first time a genuinely new leaf component showed up. `margin: '0'` on
   each overrides the browser's own default heading margin, so dropping one
   doesn't introduce whitespace none of this app's other components have.
+- Added a Load button per Screens row, rebuilding a saved tree as live,
+  editable canvas components via `fn.component._.deserializeComponent`, the
+  structural inverse of `serializeComponent`.
+- Palette-dropped `form` rendered as an empty bordered box (no data/columns
+  of its own to show fields for) -- fixed the same way `list` already
+  handles the same case, falling back to a two-field sample instead of
+  nothing.
+- Added `link`, `image`, `input`, `checkbox`, `radio` -- the app had no basic
+  web-page building blocks beyond text/containers/`button`. `link` and
+  `image` needed their own real tag (`<a>`, `<img>`) the same reason `h1`-`h3`
+  needed real heading tags rather than a styled div; `link` fell into the
+  same plain-text-leaf shape `text`/`span`/headings already share (just with
+  a fixed `href="#"` and a `preventDefault` so selecting one doesn't jump the
+  page), while `image` needed its own `serializeComponent`/`renderPreviewNode`/
+  `deserializeComponent` branches since its state is `src`/`alt`, not text.
+  `input` reopened the exact readonly/`pointer-events: none` need `form`'s
+  fields already have, but as a bare field with no form wrapping it -- since
+  `pointer-events: none` on an element also stops it receiving the mousedown
+  that would start its own drag, `input` wraps the real `<input>` in its own
+  div and puts `enableDrag` on that wrapper instead, the same trick `form`
+  already uses one level up. `checkbox`/`radio` needed the same
+  `pointer-events: none` fix for a different reason -- they ignore `readonly`
+  entirely per the HTML spec -- and needed their own `.__option-label` span
+  (like `popup`'s `.__popup-title`) since their label text can't just be the
+  wrapper's `textContent` without also swallowing the checkbox/radio input
+  itself; wrapped in a plain `div` rather than a real `<label>` so selecting
+  one doesn't also trigger a browser's own implicit label-click-toggle.
