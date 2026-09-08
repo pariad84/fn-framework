@@ -1,4 +1,3 @@
-
 # fn-framework
 
 A drag-and-drop page builder built directly on `fn.js`'s seven essentials (see
@@ -39,7 +38,7 @@ truth for this app, not kept in sync with mini-framework's.
     one" on drop.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
   components (`text`/`span`/`h1`/`h2`/`h3`/`link`/`div`/`popup`/`image`/
-  `button`/`input`/`textarea`/`checkbox`/`radio`/`list`/`form`) ->
+  `button`/`input`/`textarea`/`checkbox`/`radio`/`select`/`list`/`form`) ->
   `serializeComponent` -> undo/redo + multi-select helpers (`serializeCanvas`/
   `pushUndo`/`onCanvasChange`/`applyUndoState`/`undo`/`redo`/
   `clearMultiSelection`/`updateMultiSelectionUI`) -> `builder`/`palette`/
@@ -177,6 +176,18 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   real second use for it yet -- see "Adding to the framework" in
   mini-framework's CLAUDE.md for the model this follows, even though this
   repo isn't the framework itself).
+- `select` -- a real `<select>` with `<option>`s from `opt.data.options` (an
+  array of option text, defaulting to a three-item sample when dropped from
+  the palette with none of its own, the same reason `list`/`form` fall back
+  to sample rows/fields). `pointer-events: none` on the `<select>` itself is
+  the only way to keep it static here, same as `checkbox`/`radio` --
+  `readonly` has no effect on a select per the HTML spec either -- wrapped in
+  its own div with `enableDrag` on the wrapper for the same reason `input`
+  is. Fixed at drop time, like `input`/`textarea`; `serializeComponent`
+  reads the option text straight back from the live `<option>` elements
+  (`el.querySelectorAll('option')`) instead of stashing a separate copy on
+  the element, since the DOM is already the one source of truth here and a
+  second copy could only drift from it.
 - `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
   `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`
   returns elsewhere in this codebase), and optionally `opt.columns`
@@ -270,7 +281,7 @@ for a leaf, `el.querySelector('.__popup-title')` for `popup`, nothing for
    (like `text`/`span`/`button`), it's already covered by `renderAttributeRows`'s
    `textTarget` fallback (`!el.content && el._.name !== 'list' && el._.name !==
    'form' && el._.name !== 'textarea' && el._.name !== 'input' && el._.name !==
-   'image'`) -- no extra wiring needed. If it keeps that string somewhere else
+   'image' && el._.name !== 'select'`) -- no extra wiring needed. If it keeps that string somewhere else
    (like `popup`'s title, or `checkbox`/`radio`'s `.__option-label`), add a
    case to `textTarget` instead. Do **not** make it `contenteditable` to edit
    it on canvas instead -- see "Components" above for why that conflicts with

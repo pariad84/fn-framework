@@ -10,7 +10,7 @@ the directory, e.g. `npx serve .`) to use it.
 
 - **Builder** -- drag components (`text`, `span`, `h1`, `h2`, `h3`, `link`,
   `div`, `popup`, `image`, `button`, `input`, `textarea`, `checkbox`,
-  `radio`, `list`, `form`) from the left palette onto the canvas. Whatever you're currently dragging over -- the canvas, a
+  `radio`, `select`, `list`, `form`) from the left palette onto the canvas. Whatever you're currently dragging over -- the canvas, a
   `div`, or a `popup`'s content area -- highlights with a dashed blue
   outline, so it's always clear where a drop will land. Every component
   automatically looks like its
@@ -32,7 +32,7 @@ the directory, e.g. `npx serve .`) to use it.
   component's, since the two have to match.
 - **Screens** -- every screen saved from Builder, each with a live preview
   render, Load (rebuilds it as live, editable components back on the Builder
-  canvas), and Delete (with a confirmation prompt).
+  canvas), and Delete.
 
 ## Design history
 
@@ -283,3 +283,10 @@ the directory, e.g. `npx serve .`) to use it.
   fell back to shrinking to its own content size instead of actually
   reaching 768px/375px. Nothing here is persisted -- it resets to Desktop on
   every builder mount, like the rest of this toolbar's state already does.
+- Added `select` -- the app still had no basic dropdown control. Needed the
+  same `pointer-events: none` fix `checkbox`/`radio` already use (`readonly`
+  has no effect on a select either), wrapped in its own div with `enableDrag`
+  on the wrapper the same reason `input` is. Its options are read straight
+  back from the live `<option>` elements in `serializeComponent` rather than
+  stashed anywhere else on the component, since the rendered DOM is already
+  the one place that state lives.

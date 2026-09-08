@@ -372,6 +372,39 @@
         },
     });
 
+    // A real <select> with <option>s from opt.data.options (defaults to a small sample list
+    // when dropped from the palette with none of its own, the same reason list/form fall back to
+    // sample rows/fields instead of rendering empty). Wrapped in its own div for the same reason
+    // input is: pointer-events:none on the select is the only way to keep it static here --
+    // unlike a text input, `readonly` has no effect on a select per the HTML spec, same as
+    // checkbox/radio -- but none on an element also blocks the mousedown that would start its own
+    // drag, so enableDrag lives on the wrapper instead. Fixed at drop time -- no attributes-panel
+    // editing -- the same as input/textarea; serializeComponent reads the option text back
+    // straight from the live <option> elements rather than stashing a separate copy, since that's
+    // already the single source of truth and can't drift out of sync with itself.
+    fn.component.layout.set({
+        name : 'select',
+        layout : function(opt) {
+            var wrap = fn.element.create({
+                tagName : 'div',
+                attribute : { class : '__component' },
+                style : { display : 'inline-block', padding : '4px' },
+                parent : opt.parent,
+            });
+            var select = fn.element.create({
+                tagName : 'select',
+                style : { padding : '6px 8px', font : 'inherit', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328', pointerEvents : 'none' },
+                parent : wrap,
+            });
+            ((opt.data && opt.data.options) || [ 'Option 1', 'Option 2', 'Option 3' ]).forEach(function(option) {
+                fn.element.create({ tagName : 'option', text : option, parent : select });
+            });
+            fn.component._.applyTypeStylesheet(wrap, 'select');
+            fn.util.enableDrag({ el : wrap });
+            return wrap;
+        },
+    });
+
     // Shared by list/form's own header/label rendering and their renderPreviewNode counterparts
     // below. column.label || column.name would treat an intentionally blank label ('', e.g. a
     // list column whose only content is a Delete button and needs no header text) the same as a
@@ -457,9 +490,7 @@
     // A single-record counterpart to `list`, sharing its opt.columns shape ({ name, label, list,
     // form }) but reading column.form instead of column.list (list's per-cell style has no
     // meaning for a field laid out top-to-bottom) and opt.data -- one plain object, since a form
-    // shows one record rather than a row-per-object array. Falls back to a two-field sample when
-    // dropped from the palette with no data of its own, the same reason `list` above falls back
-    // to sample rows instead of rendering an empty table. Each field defaults to a real <input>
+    // shows one record rather than a row-per-object array. Each field defaults to a real <input>
     // (attribute.type from column.form, defaulting to 'text'; column.form.tagName overrides the
     // element itself, e.g. 'textarea' for a multi-line field -- see Stylesheets' own form below)
     // for visual fidelity with an actual form. Readonly and pointer-events:none by default: unlike
@@ -522,14 +553,12 @@
     // comment above) walks el.content's children; 'list'/'form' read back the el.datas/el.columns
     // or el.data/el.columns those layouts already stashed on themselves (see each layout's own
     // comment for why those, and not el._.opt or rendered DOM text, are the source of truth
-    // here); 'image' likewise reads its stashed el.data; 'textarea'/'input' read their own live
-    // .value (a real form control's live value, unlike a plain div/span/button, never shows up in
-    // .textContent); 'checkbox'/'radio' read their own '.__option-label' span's textContent, not
-    // the wrapper's own (which would also include the empty input); anything else (text/span/
-    // h1-h3/link/button) is read as its own textContent, kept current by attributes-panel's text
-    // field (see renderAttributeRows) rather than by editing on canvas -- see that field's
-    // comment for why. Reads all of these live rather than the original opt.data, since editing
-    // only ever changes the DOM/value, never that original opt.
+    // here); 'textarea' reads its own .value (a real form control's live value, unlike a plain
+    // div/span/button, never shows up in .textContent); anything else (text/span/button) is read
+    // as its own textContent, kept current by attributes-panel's text field (see
+    // renderAttributeRows) rather than by editing on canvas -- see that field's comment for why.
+    // Reads all of these live rather than the original opt.data, since editing only ever changes
+    // the DOM/value, never that original opt.
     fn.component._.serializeComponent = function(el) {
         var node = { type : el._.name, style : (el._.opt && el._.opt.style) || {} };
         if (el.content) {
@@ -551,6 +580,8 @@
             node.data = { text : el.querySelector('input').value };
         } else if (el._.name === 'checkbox' || el._.name === 'radio') {
             node.data = { text : el.querySelector('.__option-label').textContent };
+        } else if (el._.name === 'select') {
+            node.data = { options : Array.from(el.querySelectorAll('option')).map(function(o) { return o.textContent; }) };
         } else {
             node.data = { text : el.textContent };
         }
@@ -656,7 +687,7 @@
                 style : { display : 'flex', flex : '1', minHeight : '0' },
             });
 
-            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'h1', 'h2', 'h3', 'link', 'div', 'popup', 'image', 'button', 'input', 'textarea', 'checkbox', 'radio', 'list', 'form' ], parent : builder });
+            fn.component.create({ name : 'palette', components : opt.components || [ 'text', 'span', 'h1', 'h2', 'h3', 'link', 'div', 'popup', 'image', 'button', 'input', 'textarea', 'checkbox', 'radio', 'select', 'list', 'form' ], parent : builder });
 
             // The toolbar sits only above canvas, not the full builder width -- wrapping canvas
             // in its own flex column (rather than putting the toolbar back at the builder level)
@@ -1011,7 +1042,7 @@
         // textContent, since a popup's textContent would also include its children's text.
         var textTarget = el._.name === 'popup' ? el.querySelector('.__popup-title')
             : (el._.name === 'checkbox' || el._.name === 'radio') ? el.querySelector('.__option-label')
-            : (!el.content && el._.name !== 'list' && el._.name !== 'form' && el._.name !== 'textarea' && el._.name !== 'input' && el._.name !== 'image') ? el
+            : (!el.content && el._.name !== 'list' && el._.name !== 'form' && el._.name !== 'textarea' && el._.name !== 'input' && el._.name !== 'image' && el._.name !== 'select') ? el
             : null;
         if (textTarget) {
             var textInput = fn.element.create({
@@ -1223,6 +1254,14 @@
             return optionWrap;
         }
 
+        if (node.type === 'select') {
+            var select = fn.element.create({ tagName : 'select', style : Object.assign({ padding : '6px 8px', pointerEvents : 'none' }, node.style) });
+            node.data.options.forEach(function(option) {
+                fn.element.create({ tagName : 'option', text : option, parent : select });
+            });
+            return select;
+        }
+
         var el = fn.element.create({ tagName : 'div', style : Object.assign({ padding : '4px' }, node.style) });
         if (node.children) {
             if (node.type === 'popup') {
@@ -1248,6 +1287,8 @@
             el = fn.component.create({ name : 'form', data : node.data.data, columns : node.data.columns, parent : parent });
         } else if (node.type === 'image') {
             el = fn.component.create({ name : 'image', data : { src : node.data.src, alt : node.data.alt }, parent : parent });
+        } else if (node.type === 'select') {
+            el = fn.component.create({ name : 'select', data : { options : node.data.options }, parent : parent });
         } else if (node.children) {
             el = fn.component.create({ name : node.type, data : node.type === 'popup' ? { title : node.data.title } : {}, parent : parent });
             node.children.forEach(function(child) {
