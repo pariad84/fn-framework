@@ -19,8 +19,9 @@ the directory, e.g. `npx serve .`) to use it.
   its attributes on the right -- including its text label, for components
   that have one. Right-click one for a Delete option. Nest components inside
   a `div` or a `popup`'s content area freely, and drag any component already
-  on the canvas to reposition it. "Save Screen" stores the current canvas as
-  a named screen.
+  on the canvas to reposition it. Undo/Redo step back and forward through
+  drops, repositions, deletes, and text edits. "Save Screen" stores the
+  current canvas as a named screen.
 - **Stylesheets** -- exactly one row per Builder component (its style, as
   JSON). Edit and Save a row to change how every instance of that component
   looks; rows can't be added or deleted, and a row's name is fixed to its
@@ -228,3 +229,17 @@ the directory, e.g. `npx serve .`) to use it.
   wrapper's `textContent` without also swallowing the checkbox/radio input
   itself; wrapped in a plain `div` rather than a real `<label>` so selecting
   one doesn't also trigger a browser's own implicit label-click-toggle.
+- Added Undo/Redo. Reused `serializeComponent`/`deserializeComponent` as the
+  snapshot/restore mechanism instead of cloning raw DOM, since a DOM clone
+  would lose every component's own JS-attached listeners (`enableDrag`'s
+  drag handlers, `link`'s click) that only `fn.component.create` re-wires.
+  `enableDrop` (`fn.util.js`) gained an optional `opt.onChange`, fired right
+  before a drop actually mutates anything, so canvas/div/popup's own
+  `enableDrop` calls can all snapshot pre-drop state at the one canvas-level
+  history this app keeps, even for a drop landing on a nested container --
+  passing in a hook the caller decides what to do with is the same pattern
+  `dropOutline` already uses on the same function. A text edit only snapshots
+  once, on its field's first keystroke (a local closure flag, not a DOM
+  attribute), so undo restores to before a whole editing session rather than
+  costing one step per character typed, and merely focusing a field without
+  typing doesn't cost a step either.
