@@ -29,6 +29,9 @@ truth for this app, not kept in sync with mini-framework's.
     than assumed empty, and cleared unconditionally on `dragend` -- including
     a palette-started drag, which never calls `enableDrag` -- so a drag
     cancelled outside any drop target never leaves a stale highlight.
+    Also takes `opt.onChange`, fired right before either mutation actually
+    happens (a create or a move), so a caller can snapshot pre-drop state --
+    canvas/div/popup's own `enableDrop` calls all pass one, for undo.
   - `fn.util.enableDrag({ el })` was added: marks `el` as a drag source for
     repositioning itself. `enableDrop` checks `fn.component._.draggedComponent`
     (set/cleared here) to tell "move this existing element" from "create a new
@@ -36,9 +39,10 @@ truth for this app, not kept in sync with mini-framework's.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
   components (`text`/`span`/`h1`/`h2`/`h3`/`link`/`div`/`popup`/`image`/
   `button`/`input`/`textarea`/`checkbox`/`radio`/`list`/`form`) ->
-  `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
-  `stylesheets` tab -> `renderPreviewNode` -> `deserializeComponent` ->
-  `screens` tab.
+  `serializeComponent` -> undo/redo helpers (`serializeCanvas`/`pushUndo`/
+  `onCanvasChange`/`applyUndoState`) -> `builder`/`palette`/`canvas`/
+  `attributes-panel` -> `stylesheets` tab -> `renderPreviewNode` ->
+  `deserializeComponent` -> `screens` tab.
 - `app.js` -- seeds one sample stylesheet per registered component (see "The app itself" below),
   then mounts `shell` into `document.body`.
 - `index.html` -- just the four `<script>` tags in load order (fn.js,
@@ -51,13 +55,23 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
 
 - **Builder**: a palette (draggable component list) on the left, a canvas
   (drop target) in the middle, an attributes panel on the right. A toolbar
-  above the canvas has "Save Screen", which serializes the canvas's component
-  tree and stores it under `fn.data`'s `'screens'` key. Any component already
-  on the canvas is itself draggable, so it can be repositioned -- moved to a
-  different container, or back out to the canvas -- the same way a new one
-  from the palette is placed. A selected component's label (for `text`/
-  `span`/`button`/`popup`) is edited via a text field in the attributes panel,
-  not on canvas -- see "Components" below for why.
+  above the canvas has Undo, Redo, and "Save Screen" (which serializes the
+  canvas's component tree and stores it under `fn.data`'s `'screens'` key).
+  Any component already on the canvas is itself draggable, so it can be
+  repositioned -- moved to a different container, or back out to the canvas
+  -- the same way a new one from the palette is placed. A selected
+  component's label (for `text`/`span`/`button`/`popup`) is edited via a
+  text field in the attributes panel, not on canvas -- see "Components"
+  below for why. Undo/redo lives on `canvas._.undo`/`._.redo` (two stacks of
+  plain `serializeComponent` trees, reset fresh on every builder mount --
+  see `fn.component._.pushUndo`/`applyUndoState`/`onCanvasChange`): a drop,
+  a reposition, a Delete, and a text-field edit (once, on its first
+  keystroke, not per character) each push the pre-change tree before
+  mutating, and a normal edit after undoing clears the redo stack. Reuses
+  `serializeComponent`/`deserializeComponent` rather than snapshotting raw
+  DOM (`outerHTML`/`cloneNode`), since that would lose every component's own
+  JS-attached listeners (`enableDrag`'s `dragstart`/`dragend`, `link`'s
+  `click`) that only `fn.component.create` wires back up.
 - **Stylesheets**: exactly one row per registered component (name + a style
   object), seeded once by `app.js` before mounting `shell` (guarded by
   `fn.data.select({ key : ... }).length === 0`, the same way every
