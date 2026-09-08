@@ -30,7 +30,7 @@ the directory, e.g. `npx serve .`) to use it.
   component's, since the two have to match.
 - **Screens** -- every screen saved from Builder, each with a live preview
   render, Load (rebuilds it as live, editable components back on the Builder
-  canvas), and Delete.
+  canvas), and Delete (with a confirmation prompt).
 
 ## Design history
 
@@ -261,3 +261,6 @@ the directory, e.g. `npx serve .`) to use it.
   the current canvas fresh on every keypress instead, and bails out entirely
   while focus is in a real text input/textarea so it never hijacks normal
   typing or a real copy/paste inside one of those fields.
+- Screens' own Delete deleted immediately on click, with no way back --
+  added a `confirm()` guard, the same plain-dialog convention Save Screen's
+  `prompt()`/`alert()` already use.
