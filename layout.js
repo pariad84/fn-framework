@@ -706,7 +706,15 @@
                         }
                         var canvas = e.target.closest('.__builder').querySelector('.__canvas');
                         var tree = fn.component._.serializeCanvas(canvas);
-                        fn.data.insert({ key : 'screens', data : { name : name, tree : tree } });
+                        var existing = fn.util.selectFlat({ key : 'screens' }).find(function(row) { return row.name === name; });
+                        if (existing) {
+                            if (!confirm('A screen named "' + name + '" already exists. Overwrite it?')) {
+                                return;
+                            }
+                            fn.data.update({ key : 'screens', id : existing.id, data : { name : name, tree : tree } });
+                        } else {
+                            fn.data.insert({ key : 'screens', data : { name : name, tree : tree } });
+                        }
                         alert('Saved.');
                     },
                 },
