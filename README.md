@@ -19,7 +19,9 @@ the directory, e.g. `npx serve .`) to use it.
   its attributes on the right -- including its text label, for components
   that have one. Right-click one for a Delete option. Nest components inside
   a `div` or a `popup`'s content area freely, and drag any component already
-  on the canvas to reposition it. Undo/Redo step back and forward through
+  on the canvas to reposition it. Ctrl/Cmd+click multi-selects components;
+  Delete/Backspace, Ctrl/Cmd+C, Ctrl/Cmd+V, and Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z
+  work on the current selection. Undo/Redo step back and forward through
   drops, repositions, deletes, and text edits. "Save Screen" stores the
   current canvas as a named screen.
 - **Stylesheets** -- exactly one row per Builder component (its style, as
@@ -243,3 +245,19 @@ the directory, e.g. `npx serve .`) to use it.
   attribute), so undo restores to before a whole editing session rather than
   costing one step per character typed, and merely focusing a field without
   typing doesn't cost a step either.
+- Added multi-select (Ctrl/Cmd+click), copy/paste, and keyboard shortcuts.
+  Multi-select is a separate `canvas._.multiSelected` Set, deliberately
+  mutually exclusive with the existing single-select rather than layered on
+  top of it -- a plain click or right-click always clears it first -- so
+  there's still only one selection model to reason about at a time; the
+  attributes panel just shows a count while it's non-empty, since
+  `renderAttributeRows` only ever renders one component's own attributes.
+  Copy/paste uses a plain in-memory `fn.component._.clipboard` array of
+  `serializeComponent` trees rather than the real OS clipboard API, since
+  there's no server or other tab this app could share one with -- pasting
+  reuses `deserializeComponent` the same way Load/undo already do. The
+  keyboard listener is attached once at module scope rather than per canvas
+  mount (which would leak a new one on every route navigation), looking up
+  the current canvas fresh on every keypress instead, and bails out entirely
+  while focus is in a real text input/textarea so it never hijacks normal
+  typing or a real copy/paste inside one of those fields.
