@@ -670,9 +670,51 @@
 
             var toolbar = fn.element.create({
                 tagName : 'div',
-                style : { display : 'flex', justifyContent : 'flex-end', padding : '8px 12px', background : '#ffffff', borderBottom : '1px solid #d9dce1', flexShrink : '0' },
+                style : { display : 'flex', justifyContent : 'space-between', alignItems : 'center', padding : '8px 12px', background : '#ffffff', borderBottom : '1px solid #d9dce1', flexShrink : '0' },
                 parent : canvasColumn,
             });
+
+            // Lets the canvas preview at a fixed device width instead of always filling the
+            // full flex column. A canvas with `flex: 1 1 0%` (its own default) and a cross-axis
+            // margin: auto no longer stretches to the column's width -- auto margins override
+            // the container's default stretch alignment, so without an explicit width the item
+            // falls back to shrink-to-fit content (which is why this needs an explicit `width`,
+            // not just a `max-width` cap, to actually reach 768px/375px rather than collapsing
+            // to its own padding). margin: auto then centers that fixed width within the column.
+            // 'Desktop' clears both back to the canvas's normal fill-the-column default.
+            // widthButtons is only for toggling which one looks active -- the canvas's own style
+            // is the real state; nothing here is persisted, so it resets to Desktop on every
+            // builder mount like everything else on this toolbar already does.
+            var widthGroup = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '6px' }, parent : toolbar });
+            var widthButtons = [];
+            [
+                { label : 'Desktop', width : '' },
+                { label : 'Tablet', width : '768px' },
+                { label : 'Mobile', width : '375px' },
+            ].forEach(function(device, index) {
+                var btn = fn.element.create({
+                    tagName : 'button',
+                    attribute : { type : 'button' },
+                    text : device.label,
+                    style : { padding : '6px 14px' },
+                    event : { click : function(e) {
+                        var canvas = e.target.closest('.__builder').querySelector('.__canvas');
+                        canvas.style.width = device.width;
+                        canvas.style.margin = device.width ? '0 auto' : '';
+                        widthButtons.forEach(function(b) { b.style.background = '#ffffff'; b.style.color = '#1f2328'; });
+                        btn.style.background = '#2563eb';
+                        btn.style.color = '#ffffff';
+                    } },
+                    parent : widthGroup,
+                });
+                widthButtons.push(btn);
+                if (index === 0) {
+                    btn.style.background = '#2563eb';
+                    btn.style.color = '#ffffff';
+                }
+            });
+
+            var actionGroup = fn.element.create({ tagName : 'div', style : { display : 'flex', gap : '6px' }, parent : toolbar });
             fn.element.create({
                 tagName : 'button',
                 attribute : { type : 'button' },
@@ -681,7 +723,7 @@
                 event : { click : function(e) {
                     fn.component._.undo(e.target.closest('.__builder').querySelector('.__canvas'));
                 } },
-                parent : toolbar,
+                parent : actionGroup,
             });
             fn.element.create({
                 tagName : 'button',
@@ -691,7 +733,7 @@
                 event : { click : function(e) {
                     fn.component._.redo(e.target.closest('.__builder').querySelector('.__canvas'));
                 } },
-                parent : toolbar,
+                parent : actionGroup,
             });
             fn.element.create({
                 tagName : 'button',
@@ -718,7 +760,7 @@
                         alert('Saved.');
                     },
                 },
-                parent : toolbar,
+                parent : actionGroup,
             });
 
             fn.component.create({ name : 'canvas', parent : canvasColumn });
