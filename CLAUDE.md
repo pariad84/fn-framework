@@ -34,9 +34,11 @@ truth for this app, not kept in sync with mini-framework's.
     (set/cleared here) to tell "move this existing element" from "create a new
     one" on drop.
 - `layout.js` -- everything else. Single file, ordered: `shell` -> content
-  components (`text`/`span`/`h1`/`h2`/`h3`/`div`/`popup`/`button`/`textarea`/
-  `list`/`form`) -> `serializeComponent` -> `builder`/`palette`/`canvas`/
-  `attributes-panel` -> `stylesheets` tab -> `renderPreviewNode` -> `screens` tab.
+  components (`text`/`span`/`h1`/`h2`/`h3`/`link`/`div`/`popup`/`image`/
+  `button`/`input`/`textarea`/`checkbox`/`radio`/`list`/`form`) ->
+  `serializeComponent` -> `builder`/`palette`/`canvas`/`attributes-panel` ->
+  `stylesheets` tab -> `renderPreviewNode` -> `deserializeComponent` ->
+  `screens` tab.
 - `app.js` -- seeds one sample stylesheet per registered component (see "The app itself" below),
   then mounts `shell` into `document.body`.
 - `index.html` -- just the four `<script>` tags in load order (fn.js,
@@ -79,10 +81,12 @@ Three tabs, real hash routes via `fn.util.route` (see `shell`): **Builder**
   apply the 'list' stylesheet to itself (see the `list` layout's own comment
   for why that would otherwise be a real, visible bug).
 - **Screens**: lists what Builder's Save Screen wrote, each with a read-only
-  preview render and Delete. Hand-rolled rather than `list` -- each row's
-  preview is a full nested render (`renderPreviewNode`'s output), not a flat
-  set of columns `list`'s table-row model can represent. Loading a saved
-  screen back into the Builder for further editing isn't built yet.
+  preview render, Load, and Delete. Hand-rolled rather than `list` -- each
+  row's preview is a full nested render (`renderPreviewNode`'s output), not a
+  flat set of columns `list`'s table-row model can represent. Load rebuilds
+  the saved tree as live, editable canvas components via
+  `fn.component._.deserializeComponent` (the inverse of `serializeComponent`)
+  after navigating to `#/` and clearing the canvas.
 
 ## Components (draggable canvas building blocks)
 
@@ -98,7 +102,39 @@ and `enableDrop`'s target-detection can find them regardless of nesting depth.
   via attributes-panel's text field). `margin: '0'` overrides the browser's
   own default heading margin, so dropping one doesn't introduce whitespace
   none of this app's other components have.
+- `link` -- a real `<a href="#">`, otherwise the same plain text-leaf shape as
+  `text`/`span`/`h1`-`h3`. `href` is fixed and its click handler calls
+  `preventDefault()`, since nothing here actually navigates -- without it,
+  clicking one to select it would jump the whole builder page to its top.
+- `image` -- a real `<img>`. No real asset to point at on a canvas mockup, so
+  `opt.data.src` defaults to a small inline SVG data URI (a plain gray
+  "Image" placeholder built inline, not fetched or guessed at) when omitted;
+  `opt.data.alt` defaults to `'Image'`. Like `list`/`form`, the resolved
+  `src`/`alt` are stashed on the element (`el.data`) rather than read back
+  from the rendered `<img>`'s own properties, and fixed at drop time -- no
+  attributes-panel editing.
+- `input` -- a real `<input type="text">`, wrapped in its own div rather than
+  being the draggable root itself: readonly + `pointer-events: none` on the
+  input (the same fix `form`'s fields use, and for the same reason) also
+  stops it from ever receiving the mousedown that would start its own drag,
+  so `fn.util.enableDrag` has to live one level up, on the wrapper. Value
+  lives in the inner `<input>`'s `.value`; `serializeComponent` reads
+  `el.querySelector('input').value` for this one. Fixed at drop time, like
+  `textarea`.
 - `textarea` -- a real `<textarea>`, edited via its own `.value`.
+- `checkbox`, `radio` -- a real `<input type="checkbox">`/`<input
+  type="radio">` plus its own label text in a `.__option-label` span (not the
+  wrapper's `textContent`, the same reason `popup`'s title lives in its own
+  `.__popup-title` -- see `renderAttributeRows`'s `textTarget`). `pointer-events:
+  none` on the control is the only way to keep it static here: checkbox/radio
+  ignore `readonly` entirely per the HTML spec. The wrapper is a plain `div`,
+  not a `<label>`, so selecting one on canvas never triggers a browser's own
+  implicit label-click-toggles-the-control behavior -- this mockup has no
+  more reason to actually flip a checkbox on click than `button`/`link` have
+  to actually do anything on click. Checked state isn't tracked at all (no
+  real second use for it yet -- see "Adding to the framework" in
+  mini-framework's CLAUDE.md for the model this follows, even though this
+  repo isn't the framework itself).
 - `list` -- a `<table>` built from `opt.datas`, a row-per-object array (e.g.
   `[{ column1: 'a', column2: 'b' }, ...]` -- the same shape `fn.util.selectFlat`
   returns elsewhere in this codebase), and optionally `opt.columns`
@@ -189,11 +225,18 @@ for a leaf, `el.querySelector('.__popup-title')` for `popup`, nothing for
    If it's a leaf whose whole content is one editable string in `.textContent`
    (like `text`/`span`/`button`), it's already covered by `renderAttributeRows`'s
    `textTarget` fallback (`!el.content && el._.name !== 'list' && el._.name !==
-   'form' && el._.name !== 'textarea'`) -- no extra wiring needed. If it keeps
-   that string somewhere else (like `popup`'s title), add a case to
-   `textTarget` instead. Do **not** make it `contenteditable` to edit it on
-   canvas instead -- see "Components" above for why that conflicts with
-   `enableDrag`.
+   'form' && el._.name !== 'textarea' && el._.name !== 'input' && el._.name !==
+   'image'`) -- no extra wiring needed. If it keeps that string somewhere else
+   (like `popup`'s title, or `checkbox`/`radio`'s `.__option-label`), add a
+   case to `textTarget` instead. Do **not** make it `contenteditable` to edit
+   it on canvas instead -- see "Components" above for why that conflicts with
+   `enableDrag`. If it's natively focusable/toggleable (an `<input>`,
+   checkbox, radio, etc.) and needs to stay static on canvas, use
+   `readonly`/`pointer-events: none` the way `form`'s fields and `input`/
+   `checkbox`/`radio` do -- and if `pointer-events: none` ends up on the
+   draggable root itself, wrap it in a plain div and put `enableDrag` on the
+   wrapper instead (see `input`), since `none` also blocks the mousedown that
+   would start its own drag.
 5. `node --check layout.js`, then verify in a real browser via Playwright --
    drop it (and nest it, if it's a container), select it and check the
    attributes panel, save a screen containing it and check the Screens tab
