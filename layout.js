@@ -190,7 +190,7 @@
             // drop target. serializeComponent reads any el.content as "this is a container".
             div.content = div;
             fn.component._.applyTypeStylesheet(div, 'div');
-            fn.util.enableDrop({ el : div.content, dropOutline : '3px dashed #2563eb' });
+            fn.util.enableDrop({ el : div.content, dropOutline : '3px dashed #2563eb', onChange : function() { fn.component._.onCanvasChange(div); } });
             fn.util.enableDrag({ el : div });
             return div;
         },
@@ -231,7 +231,7 @@
                 parent : popup,
             });
             fn.component._.applyTypeStylesheet(popup, 'popup');
-            fn.util.enableDrop({ el : popup.content, dropOutline : '3px dashed #2563eb' });
+            fn.util.enableDrop({ el : popup.content, dropOutline : '3px dashed #2563eb', onChange : function() { fn.component._.onCanvasChange(popup); } });
             fn.util.enableDrag({ el : popup });
 
             return popup;
@@ -557,6 +557,43 @@
         return node;
     };
 
+    // Undo/redo, scoped to one canvas element's own .undo/.redo stacks (initialized by `canvas`
+    // below, fresh on every builder mount -- undoing back past a route navigation or a Screens
+    // Load isn't a real need, since both already start the canvas over from scratch). Snapshots
+    // are plain serializeComponent trees, the same shape a saved screen already is, restored via
+    // deserializeComponent -- reusing both rather than cloning DOM directly, since a raw
+    // outerHTML/cloneNode snapshot would lose every component's own JS-attached listeners
+    // (enableDrag's dragstart/dragend, link's click) that fn.component.create wires up fresh.
+    // onCanvasChange is the one hook canvas/div/popup's own enableDrop calls share (passed as
+    // opt.onChange, fired right before a drop actually mutates anything) so a drop landing on a
+    // nested div/popup still records at the one canvas-level history this app keeps, not a
+    // separate one per container.
+    fn.component._.serializeCanvas = function(canvasEl) {
+        return Array.from(canvasEl.children)
+            .filter(function(child) { return child.classList.contains('__component'); })
+            .map(fn.component._.serializeComponent);
+    };
+
+    fn.component._.pushUndo = function(canvasEl) {
+        canvasEl._.undo.push(fn.component._.serializeCanvas(canvasEl));
+        canvasEl._.redo = [];
+    };
+
+    fn.component._.onCanvasChange = function(el) {
+        var canvasEl = el.closest('.__canvas');
+        if (canvasEl) {
+            fn.component._.pushUndo(canvasEl);
+        }
+    };
+
+    fn.component._.applyUndoState = function(canvasEl, tree) {
+        Array.from(canvasEl.children)
+            .filter(function(child) { return child.classList.contains('__component'); })
+            .forEach(function(child) { child.remove(); });
+        tree.forEach(function(node) { fn.component._.deserializeComponent(node, canvasEl); });
+        fn.component._.selectComponent(canvasEl, null);
+    };
+
     // Referenced by canvas/attributes-panel below via .closest('.__builder'), the same
     // self-contained convention popup/close-btn/save-btn already use. Routed into shell's
     // content area rather than assuming the whole viewport, so it takes opt.components only as
@@ -591,6 +628,36 @@
             fn.element.create({
                 tagName : 'button',
                 attribute : { type : 'button' },
+                text : 'Undo',
+                style : { padding : '6px 14px' },
+                event : { click : function(e) {
+                    var canvas = e.target.closest('.__builder').querySelector('.__canvas');
+                    if (!canvas._.undo.length) {
+                        return;
+                    }
+                    canvas._.redo.push(fn.component._.serializeCanvas(canvas));
+                    fn.component._.applyUndoState(canvas, canvas._.undo.pop());
+                } },
+                parent : toolbar,
+            });
+            fn.element.create({
+                tagName : 'button',
+                attribute : { type : 'button' },
+                text : 'Redo',
+                style : { padding : '6px 14px' },
+                event : { click : function(e) {
+                    var canvas = e.target.closest('.__builder').querySelector('.__canvas');
+                    if (!canvas._.redo.length) {
+                        return;
+                    }
+                    canvas._.undo.push(fn.component._.serializeCanvas(canvas));
+                    fn.component._.applyUndoState(canvas, canvas._.redo.pop());
+                } },
+                parent : toolbar,
+            });
+            fn.element.create({
+                tagName : 'button',
+                attribute : { type : 'button' },
                 text : 'Save Screen',
                 style : { padding : '6px 14px' },
                 event : {
@@ -600,9 +667,7 @@
                             return;
                         }
                         var canvas = e.target.closest('.__builder').querySelector('.__canvas');
-                        var tree = Array.from(canvas.children)
-                            .filter(function(child) { return child.classList.contains('__component'); })
-                            .map(fn.component._.serializeComponent);
+                        var tree = fn.component._.serializeCanvas(canvas);
                         fn.data.insert({ key : 'screens', data : { name : name, tree : tree } });
                         alert('Saved.');
                     },
@@ -689,6 +754,7 @@
             style : { padding : '6px 14px', borderRadius : '4px', color : '#dc2626', cursor : 'pointer' },
             event : {
                 click : function() {
+                    fn.component._.pushUndo(opt.canvas);
                     if (opt.canvas._.selected === opt.target) {
                         fn.component._.selectComponent(opt.canvas, null);
                     }
@@ -732,7 +798,9 @@
                     },
                 },
             });
-            fn.util.enableDrop({ el : canvas, dropOutline : '3px dashed #2563eb' });
+            canvas._.undo = [];
+            canvas._.redo = [];
+            fn.util.enableDrop({ el : canvas, dropOutline : '3px dashed #2563eb', onChange : function() { fn.component._.onCanvasChange(canvas); } });
             return canvas;
         },
     });
@@ -769,7 +837,19 @@
                 style : { width : '100%', marginBottom : '12px', padding : '6px', background : '#ffffff', border : '1px solid #d9dce1', color : '#1f2328' },
                 parent : wrap,
             });
+            // pushUndo fires once, on this field's first keystroke, not on focus and not on
+            // every keystroke -- undo should restore to before this whole editing session, the
+            // same one-step-per-action granularity drop/move/delete already get, not one step
+            // per character typed, and merely focusing without typing shouldn't cost a step either.
+            var pushedUndo = false;
             textInput.addEventListener('input', function(e) {
+                if (!pushedUndo) {
+                    pushedUndo = true;
+                    var canvasEl = el.closest('.__canvas');
+                    if (canvasEl) {
+                        fn.component._.pushUndo(canvasEl);
+                    }
+                }
                 textTarget.textContent = e.target.value;
             });
         }
@@ -1040,10 +1120,7 @@
                             location.hash = '#/';
                             setTimeout(function() {
                                 var canvas = document.querySelector('.__canvas');
-                                Array.from(canvas.children)
-                                    .filter(function(child) { return child.classList.contains('__component'); })
-                                    .forEach(function(child) { child.remove(); });
-                                row.tree.forEach(function(node) { fn.component._.deserializeComponent(node, canvas); });
+                                fn.component._.applyUndoState(canvas, row.tree);
                             }, 0);
                         } },
                         parent : actions,

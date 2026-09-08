@@ -145,7 +145,11 @@
     // If fn.component._.draggedComponent is set (see enableDrag above), this is a reposition --
     // move that existing element here instead of creating a new one, unless the drop target is
     // the dragged element itself or one of its own descendants (moving something into its own
-    // child isn't meaningful, and .appendChild would throw).
+    // child isn't meaningful, and .appendChild would throw). opt.onChange, when given, fires
+    // right before either mutation actually happens (so a caller can snapshot pre-drop state,
+    // e.g. for undo) -- only right before a drop that's actually going to do something, not on
+    // every drop event, so a drop that turns out invalid (bad name, dropping onto itself) never
+    // fires it for nothing.
     fn.util.enableDrop = function(opt) {
         opt.el.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -164,12 +168,18 @@
             var dragged = fn.component._.draggedComponent;
             if (dragged) {
                 if (dragged !== opt.el && !dragged.contains(opt.el)) {
+                    if (opt.onChange) {
+                        opt.onChange();
+                    }
                     opt.el.appendChild(dragged);
                 }
                 return;
             }
             var name = e.dataTransfer.getData('text/plain');
             if (fn.component.layout.get({ name : name })) {
+                if (opt.onChange) {
+                    opt.onChange();
+                }
                 fn.component.create({ name : name, parent : opt.el });
             }
         });
